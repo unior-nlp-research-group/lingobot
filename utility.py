@@ -3,6 +3,7 @@ import re
 import logging
 
 from datetime import datetime, timedelta
+import textwrap
 
 def representsInt(s):
     try:
@@ -111,3 +112,6 @@ def timeString(datetime=now(), ms=False):
 
 def dateString(datetime=now()):
     return datetime.strftime('%d/%m/%y')
+
+def unindent(s):
+    return re.sub('[ ]+', ' ', textwrap.dedent(s))

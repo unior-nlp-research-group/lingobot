@@ -57,7 +57,7 @@ class Person(ndb.Model):
         #logging.debug("Amministratore: " + str(result))
         return result
 
-    def setLastExerciseIdAndOptions(self, exerciseId, options):
+    def setLastExerciseNumberAndOptions(self, exerciseId, options):
         self.lastExerciseId = exerciseId
         self.lastExerciseOptions = options
         self.put()

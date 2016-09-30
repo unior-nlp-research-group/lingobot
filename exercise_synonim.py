@@ -14,7 +14,6 @@ EXERCISE_SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/" \
                        "&gid=806141225"
 
 
-
 def getExercisesFromUrl():
     languageStructure = {}
     try:
