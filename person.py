@@ -16,6 +16,7 @@ class Person(ndb.Model):
     enabled = ndb.BooleanProperty(default=True)
     lastExerciseId = ndb.IntegerProperty()
     lastExerciseOptions = ndb.StringProperty(repeated=True)
+    variables = ndb.JsonProperty(indexed=False)
 
     def getName(self):
         return self.name.encode('utf-8')
@@ -66,16 +67,26 @@ class Person(ndb.Model):
         options = [x.encode('utf-8') for x in self.lastExerciseOptions]
         return self.lastExerciseId, options
 
+    def set_variable(self, var_key, var_value, put=True):
+        self.variables['var_key'] = var_value
+        if put:
+            self.put()
+    
+    def get_variable(self, var_key):
+        return self.variables['var_key']
+
 def addPerson(chat_id, name, last_name, username):
     p = Person(
         id=str(chat_id),
         chat_id=chat_id,
         name=name,
         last_name = last_name,
-        username = username
+        username = username,
+        variables = {}
     )
     p.put()
     return p
+
 
 def getPersonByChatId(chat_id):
     return Person.get_by_id(str(chat_id))

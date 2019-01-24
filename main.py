@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 
-# import json
 import json
 import logging
 import urllib
@@ -39,24 +38,24 @@ STATES = {
     2:   'Intruder Game',
 }
 
-CANCEL = u'\U0000274C'.encode('utf-8')
-CHECK = u'\U00002705'.encode('utf-8')
-LEFT_ARROW = u'\U00002B05'.encode('utf-8')
-UNDER_CONSTRUCTION = u'\U0001F6A7'.encode('utf-8')
-FROWNING_FACE = u'\U0001F641'.encode('utf-8')
+CANCEL = '❌'
+CHECK = '✅'
+LEFT_ARROW = '⬅️'
+UNDER_CONSTRUCTION = '🚧'
+FROWNING_FACE = '🙁'
 BULLET_RICHIESTA = '🔹'
 BULLET_OFFERTA = '🔸'
 BULLET_POINT = '🔸'
 
-BUTTON_SYNONIM_GAME = "🖇 SYNONIM GAME"
+BUTTON_PARTOF_GAME = "🧩 VOCABULARY GAME"
+BUTTON_SYNONYM_GAME = "🖇 SYNONYM GAME"
 BUTTON_INTRUDER_GAME = "🐸 INTRUDER GAME"
 BUTTON_ACCEPT = CHECK + " ACCEPT"
 BUTTON_CONFIRM = CHECK + " CONFIRM"
 BUTTON_ABORT = CANCEL + " ABORT"
 BUTTON_BACK = "⬅ BACK"
-BUTTON_NEXT = "➡ NEXT"
 BUTTON_EXIT = CANCEL + " EXIT"
-BUTTON_NEXT_SENTENCE = "➡ NEXT SENTENCE"
+BUTTON_SKIP = "SKIP ➡️"
 BUTTON_NO_INTRUDER = "NO INTRUDER"
 
 BUTTON_INFO = "ℹ INFO"
@@ -96,8 +95,7 @@ def broadcast(msg, restart_user=False, sender_id=None):
 
 def getInfoCount():
     c = Person.query().count()
-    msg = "Attualmente siamo in " + str(c) + " persone iscritte a BancaTempoBot! " + \
-          "Vogliamo crescere assieme! Invita altre persone ad aunirsi!"
+    msg = "{} Users".format(c)
     return msg
 
 
@@ -111,7 +109,7 @@ def tellAdministrators(msg):
 
 
 def tell(chat_id, msg, kb=None, markdown=True, inlineKeyboardMarkup=False,
-         one_time_keyboard=True, sleepDelay=False):
+         one_time_keyboard=False, sleepDelay=False):
     replyMarkup = {
         'resize_keyboard': True,
         'one_time_keyboard': one_time_keyboard
@@ -175,6 +173,54 @@ def sendWaitingAction(chat_id, action_type='typing', sleep_time=1.0):
     if sleep_time:
         sleep(sleep_time)
 
+# ================================
+# SEND GAME
+# ================================
+#telegram.me/LingoGame_bot?game=LingoGame
+
+def sendGame(chat_id):
+
+    replyMarkup = {
+        'inline_keyboard': [
+            [
+                {
+                    'text': 'play',
+                    'url': 'http://dialectbot.appspot.com/audiomap/mappa.html',
+                    'callback_data': 'data',
+                    'callback_game': 'LingoGame'
+                }
+            ]
+        ]
+    }
+
+    data = {
+        'chat_id': chat_id,
+        'game_short_name': 'LingoGame',
+    }
+    #'reply_markup': json.dumps(replyMarkup),
+
+    try:
+
+        resp = requests.post(key.BASE_URL + 'sendGame', data)
+        logging.info('Response: {}'.format(resp.text))
+    except:
+        report_exception()
+
+# ================================
+# ANSWER ONLINE QUERY
+# ================================
+
+def answerCallbackQueryGame(callback_query_id):
+    data = {
+        'callback_query_id': callback_query_id,
+        'url': 'http://dialectbot.appspot.com/audiomap/mappa.html'
+    }
+    try:
+        resp = requests.post(key.BASE_URL + 'answerCallbackQuery', data)
+        logging.info('Response: {}'.format(resp.text))
+    except:
+        report_exception()
+
 
 # ================================
 # RESTART
@@ -214,23 +260,25 @@ def repeatState(p, **kwargs):
 # ================================
 
 def goToState0(p, **kwargs):
-    input = kwargs['input'] if 'input' in kwargs.keys() else None
-    giveInstruction = input is None
+    input_text = kwargs['input_text'] if 'input_text' in kwargs.keys() else None
+    giveInstruction = input_text is None
+    kb = [
+        [BUTTON_PARTOF_GAME],
+        [BUTTON_SYNONYM_GAME,BUTTON_INTRUDER_GAME],
+        [BUTTON_INFO]
+    ]
     if giveInstruction:
-        reply_txt = 'Hi {}, press *{}* or *{}* if you want to play!'.format(
-            p.getName(), BUTTON_SYNONIM_GAME, BUTTON_INTRUDER_GAME)
-
-        kb = [
-            [BUTTON_SYNONIM_GAME],
-            [BUTTON_INTRUDER_GAME],
-            [BUTTON_INFO]
-        ]
-
+        reply_txt = "Hi {}, let's play some language game!".format(p.getName())
         tell(p.chat_id, reply_txt, kb)
     else:
-        if input == '':
+        if input_text == '':
             tell(p.chat_id, "Not a valid input.")
-        elif input == BUTTON_SYNONIM_GAME:
+        elif input_text == BUTTON_PARTOF_GAME:
+            first_time_instructions = "Let’s play some vocabulary game! 🧩"
+            tell(p.chat_id, first_time_instructions)
+            sendWaitingAction(p.chat_id, sleep_time=1)
+            redirectToState(p, 3)
+        elif input_text == BUTTON_SYNONYM_GAME:
             first_time_instructions = utility.unindent(
                 """
                 Let’s train your vocabulary! Can you find a word with the same meaning?
@@ -241,7 +289,7 @@ def goToState0(p, **kwargs):
             tell(p.chat_id, first_time_instructions)
             sendWaitingAction(p.chat_id, sleep_time=1)
             redirectToState(p, 1)
-        elif input == BUTTON_INTRUDER_GAME:
+        elif input_text == BUTTON_INTRUDER_GAME:
             first_time_instructions = utility.unindent(
                 """
                 Let’s find the intruder! 🐸
@@ -250,19 +298,34 @@ def goToState0(p, **kwargs):
             tell(p.chat_id, first_time_instructions)
             sendWaitingAction(p.chat_id, sleep_time=1)
             redirectToState(p, 2)
-        elif input == BUTTON_INFO:
-            tell(p.chat_id, INFO_TEXT)
+        elif input_text == BUTTON_INFO:
+            tell(p.chat_id, INFO_TEXT, kb)
+        elif p.chat_id in key.AMMINISTRATORI_ID:
+            dealWithAdminCommands(p, input_text)
         else:
-            tell(p.chat_id, FROWNING_FACE + " Sorry, I don't understand what you have input")
+            tell(p.chat_id, FROWNING_FACE + " Sorry, I don't understand what you have input_text")
+
+def dealWithAdminCommands(p, input_text):
+    splitCommandOnSpace = input_text.split(' ')
+    commandBodyStartIndex = len(splitCommandOnSpace[0]) + 1
+    if input_text == '/testGame':
+        sendGame(p.chat_id)
+    elif input_text == '/testInline':
+        kb = [['A'],['B'],['C']]
+        inlineKb = utility.convertKeyboardToInlineKeyboard(kb)
+        #logging.debug("InlineKb: {}".format(inlineKb))
+        tell(p.chat_id, "Test inline", kb = inlineKb, inlineKeyboardMarkup=True)
+    else:
+        tell(p.chat_id, FROWNING_FACE + " Sorry, I don't understand what you have input_text")
 
 # ================================
-# GO TO STATE 1: GAME SYNONIM
+# GO TO STATE 1: GAME SYNONYM
 # ================================
 
 
 def goToState1(p, **kwargs):
-    input = kwargs['input'] if 'input' in kwargs.keys() else None
-    giveInstruction = input is None
+    input_text = kwargs['input_text'] if 'input_text' in kwargs.keys() else None
+    giveInstruction = input_text is None
     if giveInstruction:
         exerciseId, sentence, wordIndexToReplace, wordsToReplace, falseSynonymes, trueSynonymes = exercise_synonim.getRandomExercise()
         sentenceWithBoldWord = getSentenceWithBoldedWord(sentence, wordIndexToReplace, wordsToReplace)
@@ -281,31 +344,31 @@ def goToState1(p, **kwargs):
         number_buttons = [str(x) for x in range(1,len(options)+1)]
         kb = utility.distributeElementMaxSize(number_buttons)
         kb.append([BUTTON_EXIT])
-        tell(p.chat_id, instructions, kb, one_time_keyboard=False)
+        tell(p.chat_id, instructions, kb)
         p.setLastExerciseNumberAndOptions(exerciseId, options)
     else:
-        if input == '':
+        if input_text == '':
             tell(p.chat_id, "Not a valid input.")
-        elif input == BUTTON_EXIT:
+        elif input_text == BUTTON_EXIT:
             restart(p)
-        #elif input == BUTTON_NEXT_SENTENCE:
+        #elif input_text == BUTTON_SKIP:
         #    repeatState(p)
         else:
             exerciseId, exerciseOptions = p.getLastExerciseIdAndOptions()
             exerciseId, sentence, wordIndexToReplace, wordsToReplace, falseSynonymes, trueSynonymes = exercise_synonim.getExercizeId(exerciseId)
-            if input.startswith('/'):
-                input = input[1:]
-            if utility.representsIntBetween(input, 1, len(exerciseOptions)+1):
-                number = int(input)
+            if input_text.startswith('/'):
+                input_text = input_text[1:]
+            if utility.representsIntBetween(input_text, 1, len(exerciseOptions)+1):
+                number = int(input_text)
                 chosenWord = exerciseOptions[number - 1]
             else:
-                #tell(p.chat_id, FROWNING_FACE + " Sorry, I don't understand what you have input")
-                chosenWord = input
+                #tell(p.chat_id, FROWNING_FACE + " Sorry, I don't understand what you have input_text")
+                chosenWord = input_text
             msg = "You have chosen *{0}*.\n".format(chosenWord)
             sendWaitingAction(p.chat_id, sleep_time=0.5)
             if chosenWord in trueSynonymes:
                 msg += "😄 Great, your answer is correct!"
-                #kb = [[BUTTON_NEXT_SENTENCE], [BUTTON_EXIT]]
+                #kb = [[BUTTON_SKIP], [BUTTON_EXIT]]
                 kb = [[BUTTON_EXIT]]
                 tell(p.chat_id, msg, kb)
                 sendWaitingAction(p.chat_id, sleep_time=1)
@@ -324,14 +387,15 @@ def getSentenceWithBoldedWord(sentence, wordIndexToReplace, wordsToReplace):
     return ' '.join(words)
 
 # ================================
-# GO TO STATE 2: GAME SYNONIM
+# GO TO STATE 2: GAME SYNONYM
 # ================================
 
 def goToState2(p, **kwargs):
-    input = kwargs['input'] if 'input' in kwargs.keys() else None
-    giveInstruction = input is None
+    input_text = kwargs['input_text'] if 'input_text' in kwargs.keys() else None
+    giveInstruction = input_text is None
     if giveInstruction:
         intruder_index, options = exercise_intruder.getRandomExercise()
+        options.append(BUTTON_NO_INTRUDER)
         instructions = "Which word does not belong here? " \
                        "Click on the intruder or on *{}* if you think there is no intruder.\n".format(BUTTON_NO_INTRUDER)
         options_text = [BULLET_POINT + ' /' + str(n) + ': ' + x for n, x in enumerate(options, 1)]
@@ -340,38 +404,78 @@ def goToState2(p, **kwargs):
         kb = utility.distributeElementMaxSize(number_buttons)
         kb.append([BUTTON_NO_INTRUDER])
         kb.append([BUTTON_EXIT])
-        tell(p.chat_id, instructions, kb, one_time_keyboard=False)
+        tell(p.chat_id, instructions, kb)
         p.setLastExerciseNumberAndOptions(intruder_index, options)
     else:
-        if input == '':
+        if input_text == '':
             tell(p.chat_id, "Not a valid input.")
-        elif input == BUTTON_EXIT:
+        elif input_text == BUTTON_EXIT:
             restart(p)
-        #elif input == BUTTON_NEXT_SENTENCE:
+        #elif input_text == BUTTON_SKIP:
         #    repeatState(p)
         else:
             intruder_index, exerciseOptions = p.getLastExerciseIdAndOptions()
-            if input.startswith('/'):
-                input = input[1:]
-            if utility.representsIntBetween(input, 1, len(exerciseOptions)+1):
-                number = int(input)
+            if input_text.startswith('/'):
+                input_text = input_text[1:]
+            if utility.representsIntBetween(input_text, 1, len(exerciseOptions)):
+                number = int(input_text)
                 chosenWord = exerciseOptions[number - 1]
             else:
-                #tell(p.chat_id, FROWNING_FACE + " Sorry, I don't understand what you have input")
-                chosenWord = input
-            msg = "You have chosen *{0}*.\n".format(chosenWord)
-            sendWaitingAction(p.chat_id, sleep_time=0.5)
-            chosen_index =  exerciseOptions.index(chosenWord) if chosenWord in exerciseOptions else -1
-            if (chosenWord==BUTTON_NO_INTRUDER and intruder_index==-1) or chosen_index == intruder_index:
-                msg += "😄 Great, your answer is correct!"
-                #kb = [[BUTTON_NEXT_SENTENCE], [BUTTON_EXIT]]
-                kb = [[BUTTON_EXIT]]
-                tell(p.chat_id, msg, kb)
+                chosenWord = input_text
+            if chosenWord not in exerciseOptions:
+                tell(p.chat_id, FROWNING_FACE + " Sorry, your answer is not valid")
                 sendWaitingAction(p.chat_id, sleep_time=1)
                 repeatState(p)
             else:
-                msg += "🙁 I'm sorry, your answer is NOT correct, try again"
-                tell(p.chat_id, msg)
+                msg = "You have chosen *{0}*.\n".format(chosenWord)
+                sendWaitingAction(p.chat_id, sleep_time=0.5)
+                chosen_index =  exerciseOptions.index(chosenWord) if chosenWord in exerciseOptions else None
+                if (chosenWord==BUTTON_NO_INTRUDER and intruder_index==-1) or chosen_index == intruder_index:
+                    msg += "😄 Great, your answer is correct!"
+                    #kb = [[BUTTON_SKIP], [BUTTON_EXIT]]
+                    kb = [[BUTTON_EXIT]]
+                    tell(p.chat_id, msg, kb)
+                    sendWaitingAction(p.chat_id, sleep_time=1)
+                    repeatState(p)
+                else:
+                    msg += "🙁 I'm sorry, your answer is NOT correct, try again"
+                    tell(p.chat_id, msg)
+
+# ================================
+# GO TO STATE 3: PART-OF GAME
+# ================================
+
+def goToState3(p, **kwargs):
+    from exercise_partof import getExercisesFromAPI, sendResponse
+    input_text = kwargs['input_text'] if 'input_text' in kwargs.keys() else None
+    giveInstruction = input_text is None
+    uid = 'telegram_{}'.format(p.chat_id)
+    if giveInstruction:        
+        response = getExercisesFromAPI(uid)
+        r_eid = response['eid']
+        r_object = response['object'] # "object": "a stapler|paper clips|telephone"
+        instructions = response['exercise'] # "exercise": "Name a thing that is located at a desk",
+        kb = [[BUTTON_SKIP],[BUTTON_EXIT]]
+        tell(p.chat_id, instructions, kb)
+        p.set_variable('eid',r_eid)
+    else:
+        eid = p.get_variable('eid')
+        if input_text == '':
+            tell(p.chat_id, "Not a valid input.")
+        elif input_text == BUTTON_EXIT:
+            restart(p)
+        elif input_text == BUTTON_SKIP:
+            msg = "Let's move to the next exercise!"
+            tell(p.chat_id, msg)
+            sendResponse(uid, eid, None)
+            repeatState(p)
+        else:            
+            msg = "You have inserted *{0}*. Thanks for your input!".format(input_text)
+            tell(p.chat_id, msg)
+            sendResponse(uid, eid, input_text)
+            sendWaitingAction(p.chat_id, sleep_time=1)
+            repeatState(p)
+
 
 # ================================
 # ================================
@@ -392,6 +496,19 @@ class SetWebhookHandler(webapp2.RequestHandler):
             self.response.write(
                 json.dumps(json.load(urllib2.urlopen(key.BASE_URL + 'setWebhook', urllib.urlencode({'url': url})))))
 
+# ================================
+#  CALLBACK QUERY
+# ================================
+
+
+def dealWithCallbackQuery(callback_query):
+    logging.debug('dealing with callback query')
+    game_short_name = callback_query['game_short_name'] if 'game_short_name' in callback_query else None
+    if game_short_name:
+        callback_query_id = callback_query['id']
+        answerCallbackQueryGame(callback_query_id)
+        return
+    logging.debug('callback query not recognized')
 
 
 # ================================
@@ -402,10 +519,14 @@ class SetWebhookHandler(webapp2.RequestHandler):
 class WebhookHandler(webapp2.RequestHandler):
     def post(self):
         urlfetch.set_default_fetch_deadline(60)
-        body = json.loads(self.request.body)
-        logging.info('request body:')
-        logging.info(body)
+        body = jsonUtil.json_loads_byteified(self.request.body)
+        logging.info('request body: {}'.format(body))
         self.response.write(json.dumps(body))
+
+        callback_query = body["callback_query"] if "callback_query" in body else None
+        if callback_query:
+            dealWithCallbackQuery(callback_query)
+            return
 
         # update_id = body['update_id']
         if 'message' not in body:
@@ -420,9 +541,9 @@ class WebhookHandler(webapp2.RequestHandler):
         chat_id = chat['id']
         if "first_name" not in chat:
             return
-        text = message.get('text').encode('utf-8') if "text" in message else ''
-        name = chat["first_name"].encode('utf-8')
-        last_name = chat["last_name"].encode('utf-8') if "last_name" in chat else None
+        text = message.get('text') if "text" in message else ''
+        name = chat["first_name"]
+        last_name = chat["last_name"] if "last_name" in chat else None
         username = chat["username"] if "username" in chat else None
         location = message["location"] if "location" in message else None
         contact = message["contact"] if "contact" in message else None
@@ -465,7 +586,7 @@ class WebhookHandler(webapp2.RequestHandler):
                 reply(UNDER_CONSTRUCTION + " The system is under maintanance, try again later.")
             else:
                 logging.debug("Sending {0} to state {1}. Input: '{2}'".format(p.getName(), str(p.state), text))
-                repeatState(p, input=text, contact=contact)
+                repeatState(p, input_text=text, contact=contact)
 
     def handle_exception(self, exception, debug_mode):
         logging.exception(exception)

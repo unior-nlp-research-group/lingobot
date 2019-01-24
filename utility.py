@@ -115,3 +115,24 @@ def dateString(datetime=now()):
 
 def unindent(s):
     return re.sub('[ ]+', ' ', textwrap.dedent(s))
+
+
+def makeCallbackQueryButton(text):
+    return {
+        'text': text,
+        'callback_data': text,
+    }
+
+def convertKeyboardToInlineKeyboard(kb):
+    result = []
+    for l in kb:
+        result.append([makeCallbackQueryButton(b) for b in l])
+    return result
+
+if __name__ == "__main__":
+    test_unindent = unindent(
+        """
+        Let’s find the intruder! 🐸
+        """
+    )
+    print(test_unindent)
