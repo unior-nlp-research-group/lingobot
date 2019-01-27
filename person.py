@@ -68,12 +68,12 @@ class Person(ndb.Model):
         return self.lastExerciseId, options
 
     def set_variable(self, var_key, var_value, put=True):
-        self.variables['var_key'] = var_value
+        self.variables[var_key] = var_value
         if put:
             self.put()
     
-    def get_variable(self, var_key):
-        return self.variables['var_key']
+    def get_variable(self, var_key, default_value=None):
+        return self.variables.get(var_key, default_value)
 
 def addPerson(chat_id, name, last_name, username):
     p = Person(
