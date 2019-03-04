@@ -55,7 +55,7 @@ BUTTON_CONFIRM = CHECK + " CONFIRM"
 BUTTON_ABORT = CANCEL + " ABORT"
 BUTTON_POINTS = "💰 MY POINTS"
 BUTTON_LEADERBOARD = "🏆 LEADERBOARD"
-BUTTON_NOTIFICATIONS = "🌟 NOTIFICATIONS"
+BUTTON_NOTIFICATIONS = "🌟"
 BUTTON_BACK = "⬅ BACK"
 BUTTON_EXIT = CANCEL + " EXIT"
 BUTTON_SKIP = "SKIP ➡️"
@@ -270,6 +270,13 @@ def goToState0(p, **kwargs):
         [BUTTON_POINTS, BUTTON_LEADERBOARD],
         [BUTTON_INFO]
     ]
+    
+    # update notifications
+    new_notifications_number = exercise_vocab.update_notifications(p)
+    if new_notifications_number>0:
+        #tell(p.chat_id, "New notification!!")
+        BUTTON_NUM_NOTIFICATIONS = '{} ({})'.format(BUTTON_NOTIFICATIONS, new_notifications_number)
+        kb[1].insert(1, BUTTON_NUM_NOTIFICATIONS)
     if giveInstruction:
         reply_txt = "Hi {}, let's play some language game!".format(p.getName())
         tell(p.chat_id, reply_txt, kb)
@@ -300,6 +307,20 @@ def goToState0(p, **kwargs):
             tell(p.chat_id, first_time_instructions)
             sendWaitingAction(p.chat_id, sleep_time=1)
             redirectToState(p, 2)
+        elif input_text.startswith(BUTTON_NOTIFICATIONS):
+            notifications = p.get_variable('notifications')
+            if len(notifications) > 0:
+                notifications_str = '\n'.join(["{} {}".format( # → {}
+                    '🏅' if r['badge'] else '•', 
+                    r['response']) for r in notifications]  #r['exercise']
+                )
+                msg = "Notifications:\n{}".format(notifications_str)
+                tell(p.chat_id, msg)
+                p.set_variable('notifications', [])
+                repeatState(p)
+            else:
+                msg = "No notifications."
+                tell(p.chat_id, msg)
         elif input_text == BUTTON_POINTS:
             uid = "telegram_{}".format(p.chat_id)
             response = exercise_vocab.get_points(uid)
@@ -419,7 +440,7 @@ def getSentenceWithBoldedWord(sentence, wordIndexToReplace, wordsToReplace):
     return ' '.join(words)
 
 # ================================
-# GO TO STATE 2: GAME SYNONYM
+# GO TO STATE 2: INTRUDER GAME
 # ================================
 
 def goToState2(p, **kwargs):
@@ -474,58 +495,33 @@ def goToState2(p, **kwargs):
                     tell(p.chat_id, msg)
 
 # ================================
-# GO TO STATE 3: PART-OF GAME
+# GO TO STATE 3: VOCABULARY GAME
 # ================================
 
 def goToState3(p, **kwargs):    
-    import random
     input_text = kwargs['input_text'] if 'input_text' in kwargs.keys() else None
     giveInstruction = input_text is None
-    r = random.randrange(2)
-    #uid = 'telegram_{}_{}'.format(p.chat_id,r)
-    uid = 'telegram_{}'.format(p.chat_id)
+    uid = 'telegram_{}'.format(p.chat_id)    
     if giveInstruction:        
-        response = exercise_vocab.getExercisesFromAPI(uid)
+        response = exercise_vocab.get_exercise(uid)
         r_eid = response['eid']
-        instructions = response['exercise'] # "exercise": "Name a thing that is located at a desk",        
-        '''
-        notification_list = exercise_vocab.get_notifications(uid)
-        notification_msg = "Notifications: {}".format(json.dumps(notification_list))
-        tell(p.chat_id, notification_msg)        
-        '''
-        '''
-        #tell(p.chat_id, "New notification!!")
-        new_notifications_number = exercise_vocab.update_notifications(p)
-        if new_notifications_number>0:
-            #tell(p.chat_id, "New notification!!")
-            BUTTON_NUM_NOTIFICATIONS = '{} ({} )'.format(BUTTON_NOTIFICATIONS, new_notifications_number)
-            kb = [[BUTTON_NUM_NOTIFICATIONS],[BUTTON_SKIP],[BUTTON_EXIT]]            
-        else:
-        '''
-        kb = [[BUTTON_SKIP],[BUTTON_EXIT]]
+        instructions = response['exercise'] # "exercise": "Name a thing that is located at a desk",                
         p.set_variable('eid',r_eid)
+        kb = [[BUTTON_SKIP],[BUTTON_EXIT]]
         tell(p.chat_id, instructions, kb)        
     else:
         eid = p.get_variable('eid')
         if input_text == '':
             tell(p.chat_id, "Not a valid input.")        
-        elif input_text.startswith(BUTTON_NOTIFICATIONS):
-            notifications = p.get_variable('notifications')
-            notifications_str = '\n'.join(["{}{}->{}".format(
-                '🏅' if r['badge'] else '', 
-                r['eid'],r['response']) for r in notifications]  #exercise
-            )
-            msg = "New confirmed answers: {}".format(notifications_str)
-            tell(p.chat_id, msg, kb)
         elif input_text == BUTTON_EXIT:
             restart(p)
         elif input_text == BUTTON_SKIP:
-            response = exercise_vocab.sendResponse(uid, eid, None)            
+            response = exercise_vocab.store_response(uid, eid, None)            
             msg = "Let's move to the next exercise!"
             tell(p.chat_id, msg)            
             repeatState(p)
         else:                        
-            response = exercise_vocab.sendResponse(uid, eid, input_text)
+            response = exercise_vocab.store_response(uid, eid, input_text)
             r_points = response['points']
             if r_points>0:
                 msg = utility.unindent(
@@ -550,9 +546,8 @@ def goToState3(p, **kwargs):
                 )                
             tell(p.chat_id, msg)
             sendWaitingAction(p.chat_id, sleep_time=1)
-            repeatState(p)
-
-
+            repeatState(p)            
+            
 # ================================
 # ================================
 # ================================
@@ -632,6 +627,7 @@ class WebhookHandler(webapp2.RequestHandler):
             tell(chat_id, msg, kb, markdown, inlineKeyboardMarkup)
 
         p = person.getPersonByChatId(chat_id)
+        user_name = 'telegram_{}'.format(chat_id)
 
         if p is None:
             # new user
@@ -640,8 +636,9 @@ class WebhookHandler(webapp2.RequestHandler):
                 reply(INFO_TEXT)
             elif text.startswith("/start"):
                 tell_masters("New user: " + name)
-                p = person.addPerson(chat_id, name, last_name, username)
-                reply("Ciao {0}, welcome in LingoGameBot!".format(name))
+                p = person.addPerson(chat_id, name, last_name, username)                
+                exercise_vocab.add_user(user_name, name)
+                reply("Hi {0}, welcome in LingoGameBot!".format(name))
                 restart(p)
             else:
                 reply("Press on /start if you want to begin. "
@@ -649,6 +646,7 @@ class WebhookHandler(webapp2.RequestHandler):
         else:
             # known user
             p.updateUsername(username)
+            exercise_vocab.add_user(user_name, name)
             if text == '/state':
                 if p.state in STATES:
                     reply("You are in state " + str(p.state) + ": " + STATES[p.state])

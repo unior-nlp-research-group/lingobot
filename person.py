@@ -83,7 +83,7 @@ def addPerson(chat_id, name, last_name, username):
         last_name = last_name,
         username = username,
         variables = {}
-    )
+    )    
     p.put()
     return p
 
