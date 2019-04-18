@@ -10,8 +10,8 @@ API_URL = "http://cognition-srv1.ouc.ac.cy/nvt/webservice/api.php"
 USER1_UID = 'telegram_130870321'
 USER1_NAME = 'Federico'
 
-USER2_UID = 'Fede_Web'
-USER2_NAME = 'b2f8711c-3f29-4324-b939-a3d8ddda6fa3'
+USER2_UID = 'b2f8711c-3f29-4324-b939-a3d8ddda6fa3'
+USER2_NAME = 'Fede_Web'
 
 EID_1 = 94
 EID_1_VALID_ANSWERS = 'bark|pet|animal|flea|canine|puppy|cat|woof|bark|tail|wolf|cat|friend|cat|fleas|Dog|beagle|puppy|barking|cat|animal|bone|four|house|legs|best|domestic|pet|god|puppy|pup|mammal|bite|slang|corgi|cur|canine|chap|griffon|Joy|lapdog|Leonberg|Newfoundland|pooch|pug|spitz|flag|fed|loved|it|ker|pasji|pasji|pas|progoniti|psina|ca|gos|hund|vovhund|vovse|andiron|cad|frank|frump|pawl|chase|can|perro|or|tipo|txakur|zakur|kaveri|koira|chien|can|cane|anjing|orang|bisk|hund|pieron|pierun|pies|cachorro|household|god|fox|furry|cat|bark|barks|kennel|mans|backwards|cat|wolf|family|fur|swim|paws|bow|dare|hound|lulu|dogaholic|bonedog|bulldog|chilidog|curdog|dogballs|dogdraw|dogear|dogeared|dogend|dogfood|dogfur|doghead|dogleg|dogrobber|dogshit|dogsitter|dogsled|dogsledder|dogspike|dogtooth|dogwhip|firedog|hangdog|horndog|longdog|sheepdog|sleddog|dogged|dogged|doggie|dogging|doggo|doggy|underdog|Dog|Dog|bitch|dogo|dogue|Dog|Dog|Q144|Dog|Q500936|doge|dogg|dogged|doggest|doggeth|dogging|dogs|dogs|dogs|derogatory|geordie|poker|argot|astronomie|zoologie|british|nautical|overlip|bichon|comhartaich|tabhannaich|akita|basenji|basset|beagle|bloodhound|Bob|borzoi|boxer|briard|Brownie|bulldog|chow|collie|coonhound|cur|cur|dachshund|dalmatian|deerhound|dingo|quadriped|canid|canine|canis|mammal|elkhound|Fido|greyhound|greyhound|Groenendael|harrier|husky|keeshond|koolie|kuvasz|lapdog|malamute|mastiff|pointer|poodle|puli|puppy|puppy|retriever|rottweiler|samoyed|schipperke|setter|sheepdog|sheepdog|shepherd|shetland|spaniel|terrier|vizsla|watchdog|weimaraner|whippet|bitch|hound|legs|adia|alemos|hond|bicce|docga|hunden|hund|tife|xewa|can|perru|kiez|ki|ca|gos|gossa|ayam|ido|iro|itoy|kato|libon|libonon|tukoy|konak|awal|ofi|ghjacaru|it|pes|ci|hund|atze|haufen|haushund|hecheln|hundehalter|hundeleben|hund|lefze|rute|schweinehund|welpe|zibbe|cun|pjas|cortois|hont|avu|africanis|aidi|alco|alsatian|antidog|apricot|aroo|atipamezole|baby|baiting|bandog|bankhar|barbet|barghest|barkese|bark|basenji|baskervillean|bawty|bearhound|bedog|bench|bitch|bitser|boarhound|borzoi|bowser|boy|buansuah|bulldog|canicide|canid|caniform|canine|canine|caninophile|caniphobia|canivorous|canophilia|canophilist|catmill|cavachon|cefovecin|cerberus|chiengora|chihuahua|chiweenie|chondrodystrophoid|choodle|chug|coachdog|cocker|collie|conchectomy|coonhound|corgi|courser|coursing|coydog|creeper|crocotta|crotch|cur|cyanthropy|cynanthropy|cynarctomachy|cynical|cyno|cynocephalic|cynocephaly|cynologist|cynology|cynomorphism|cynophile|cynophilist|cynophobia|cynophobic|cynorexia|dachshund|debark|deerhound|demiwolf|deracoxib|dhole|dirlotapide|dobermann|doga|dogcatcher|cynomorphic|cynomorphism|digital|graphic|on|screen|dogcow|dogdom|dogdraw|dogeater|dogese|dogfucker|doggess|doggily|dogging|doggo|doggy|doghole|doghood|dogitude|dogleg|dogless|doglet|doglike|dogling|doglore|doglover|dogly|dogly|dognap|bitch|click|coward|domesticated|dull|dust|foot|fox|galaxy|girl|horny|human|log|mammal|man|obscured|pallet|ratchet|unattractive|underdog|windlass|wolf|woman|years|bide|cageot|chien|four|galaxie|gars|homme|laideron|mec|navet|obscurcir|pitou|dogness|dogophile|dogote|dogproof|dogproof|dogship'.split('|')
@@ -37,36 +37,37 @@ def random_string_generator(size):
     return ''.join(random.choice(string.ascii_lowercase) for _ in range(size))
 
 def test_random_answers():
-    #exercise_vocab.reset_db()
     exercise_vocab.add_user(USER1_UID, USER1_NAME)
     new_answer = random_string_generator(15)
-    json_response = exercise_vocab.store_response(USER1_UID, EID_1, new_answer)
-    assert_equality(json_response["uid"], USER1_UID) 
+    json_response = exercise_vocab.store_response(EID_1, USER1_UID, new_answer)
+    assert_equality(json_response["userid"], USER1_UID) 
     assert_equality(int(json_response["eid"]), EID_1) 
     assert_equality(json_response["response"], new_answer) 
     assert_equality(json_response["points"], None) 
 
 def test_valid_answer():
-    #exercise_vocab.reset_db()
     exercise_vocab.add_user(USER1_UID, USER1_NAME)
     valid_answer = EID_1_VALID_ANSWERS[0]
-    json_response = exercise_vocab.store_response(USER1_UID, EID_1, valid_answer)
+    json_response = exercise_vocab.store_response(EID_1, USER1_UID, valid_answer)
     assert json_response["points"] > 0, '{} <=0 {}'.format(json_response["points"], 0)
-    json_response = exercise_vocab.store_response(USER1_UID, EID_1, valid_answer)
+    json_response = exercise_vocab.store_response(EID_1, USER1_UID, valid_answer)
     assert_equality(json_response["points"], 0) 
 
 def test_notifications():
-    exercise_vocab.reset_db()
     exercise_vocab.add_user(USER1_UID, USER1_NAME)
+    response_json = exercise_vocab.get_user_info(USER1_UID)
+    print(json.dumps(response_json, indent=3))
     exercise_vocab.add_user(USER2_UID, USER2_NAME)
+    response_json = exercise_vocab.get_user_info(USER2_UID)
+    print(json.dumps(response_json, indent=3))
     new_agreed_answer = "new agreed answer"
     print("Agreed answer: {}\n".format(new_agreed_answer))
-    exercise_vocab.store_response(USER1_UID, EID_1, new_agreed_answer)
-    exercise_vocab.store_response(USER2_UID, EID_1, new_agreed_answer)
-    exercise_vocab.store_response(USER1_UID, EID_1, random_string_generator(15))
-    exercise_vocab.store_response(USER1_UID, EID_1, random_string_generator(15))
-    exercise_vocab.store_response(USER1_UID, EID_1, random_string_generator(15))    
-    exercise_vocab.store_response(USER1_UID, EID_1, random_string_generator(15))   
+    exercise_vocab.store_response(EID_1, USER1_UID, new_agreed_answer)
+    exercise_vocab.store_response(EID_1, USER2_UID, new_agreed_answer)
+    exercise_vocab.store_response(EID_1, USER1_UID, random_string_generator(15))
+    exercise_vocab.store_response(EID_1, USER1_UID, random_string_generator(15))
+    exercise_vocab.store_response(EID_1, USER1_UID, random_string_generator(15))    
+    exercise_vocab.store_response(EID_1, USER1_UID, random_string_generator(15))   
     # at least 6 
     # json_response = exercise_vocab.get_notifications(USER1_UID)
     # print("Notifications first call: {}\n".format(json.dumps(json_response, indent=4)))
@@ -75,12 +76,42 @@ def test_notifications():
     # json_response = exercise_vocab.get_notifications(USER1_UID)
     # print("Notifications third call: {}\n".format(json.dumps(json_response, indent=4)))
 
+def test_user_info():
+    response_json = exercise_vocab.get_user_info('invalid_user')
+    print(json.dumps(response_json, indent=3))
+    assert len(response_json)==0
+    response_json = exercise_vocab.add_user(USER1_UID, USER1_NAME)
+    print("Add user response:\n{}".format(json.dumps(response_json, indent=3)))
+    response_json = exercise_vocab.get_user_info(USER1_UID)
+    print(json.dumps(response_json, indent=3))
+    assert len(response_json)>0
+
+def test_get_exercise():
+    exercise_vocab.add_user(USER1_UID, USER1_NAME)
+    exercise_json = exercise_vocab.get_exercise(USER1_UID, elevel='A1', etype='LocatedAt')
+    print("Exercise response:\n{}".format(json.dumps(exercise_json, indent=3)))
+
+def test_random_response():
+    exercise_vocab.add_user(USER1_UID, USER1_NAME)
+    exercise_json = exercise_vocab.get_exercise(USER1_UID)
+    eid = exercise_json['eid']
+    #exercise = exercise_json['exercise']
+    random_response_json = exercise_vocab.get_random_response(eid, USER1_UID)
+    print("Random response:\n{}".format(json.dumps(random_response_json, indent=3)))
+
 def test_leaderboard():
     leaderboard_json = exercise_vocab.get_leaderboard()
-    print(json.dumps(leaderboard_json, indent=3))
+    print(json.dumps(leaderboard_json, indent=3))    
+    
+    
 
 if __name__ == "__main__": 
+    exercise_vocab.reset_db()
+    
+    #test_user_info()
     #test_random_answers()
     #test_valid_answer()
-    test_notifications()
-    test_leaderboard()
+    #test_notifications()
+    test_get_exercise()
+    #test_leaderboard()
+    #test_random_response()

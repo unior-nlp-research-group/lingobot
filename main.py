@@ -14,6 +14,7 @@ import re
 from google.appengine.api import urlfetch
 from google.appengine.ext import ndb
 from google.appengine.ext import deferred
+from google.appengine.ext.db import datastore_errors
 
 import key
 import person
@@ -58,7 +59,7 @@ BUTTON_LEADERBOARD = "🏆 LEADERBOARD"
 BUTTON_NOTIFICATIONS = "🌟"
 BUTTON_BACK = "⬅ BACK"
 BUTTON_EXIT = CANCEL + " EXIT"
-BUTTON_SKIP = "SKIP ➡️"
+BUTTON_DONT_KNOW = "🤔 DON'T KNOW"
 BUTTON_NO_INTRUDER = "NO INTRUDER"
 
 BUTTON_INFO = "ℹ INFO"
@@ -76,24 +77,30 @@ INFO_TEXT = "CrowdFest - Task3 - Vocabulary trainer"
 # ================================
 
 
-def broadcast(msg, restart_user=False, sender_id=None):
-    qry = Person.query().order(-Person.last_mod)
-    disabled = 0
-    count = 0
-    for p in qry:
+def broadcast(sender_chat_id, msg, restart_user=False, curs=None, enabledCount = 0):    
+    try:
+        users, next_curs, more = Person.query().fetch_page(500, start_cursor=curs)
+    except datastore_errors.Timeout:
+        sleep(1)
+        deferred.defer(broadcast, sender_chat_id, msg, restart_user, curs, enabledCount)
+        return
+
+    for p in users:
         if p.enabled:
-            count += 1
-            tell(p.chat_id, msg, sleepDelay=True)
             if restart_user:
                 restart(p)
-        else:
-            disabled += 1
-    if sender_id:
-        enabledCount = qry.count() - disabled
-        msg_debug = 'Messaggio inviato a ' + str(qry.count()) + ' persone.\n' + \
-                    'Messaggio ricevuto da ' + str(enabledCount) + ' persone.\n' + \
-                    'Persone disabilitate: ' + str(disabled)
-        tell(sender_id, msg_debug)
+            if send_message(p.chat_id, msg, sleepDelay=True):
+                enabledCount += 1
+
+    if more:
+        deferred.defer(broadcast, sender_chat_id, msg, restart_user, next_curs, enabledCount)
+    else:
+        total = Person.query().count()
+        disabled = total - enabledCount
+        msg_debug = 'Message sent to ' + str(total) + ' players.\n' + \
+                    'Message received to ' + str(enabledCount) + ' players.\n' + \
+                    'Players disabled: ' + str(disabled)
+        send_message(sender_chat_id, msg_debug)
 
 def getInfoCount():
     c = Person.query().count()
@@ -103,14 +110,14 @@ def getInfoCount():
 
 def tell_masters(msg):
     for id in key.MASTER_CHAT_ID:
-        tell(id, msg)
+        send_message(id, msg)
 
 def tellAdministrators(msg):
     for id in key.AMMINISTRATORI_ID:
-        tell(id, msg)
+        send_message(id, msg)
 
 
-def tell(chat_id, msg, kb=None, markdown=True, inlineKeyboardMarkup=False,
+def send_message(chat_id, msg, kb=None, markdown=True, inlineKeyboardMarkup=False,
          one_time_keyboard=False, sleepDelay=False):
     replyMarkup = {
         'resize_keyboard': True,
@@ -152,14 +159,28 @@ def tell(chat_id, msg, kb=None, markdown=True, inlineKeyboardMarkup=False,
                 p.setEnabled(False, put=True)
                 debugMessage = '❗ Input user disactivated: ' + p.getUserInfoString()
                 logging.debug(debugMessage)
-                tell(key.FEDE_CHAT_ID, debugMessage, markdown=False)
+                send_message(key.FEDE_CHAT_ID, debugMessage, markdown=False)
             else:
-                debugMessage = '❗ Raising unknown err in tell() when sending msg={} kb={}.' \
+                debugMessage = '❗ Raising unknown err in send_message() when sending msg={} kb={}.' \
                           '\nStatus code: {}\nerror code: {}\ndescription: {}.'.format(
                     msg, kb, status_code, error_code, description)
                 logging.error(debugMessage)
-                tell(key.FEDE_CHAT_ID, debugMessage, markdown=False)
+                send_message(key.FEDE_CHAT_ID, debugMessage, markdown=False)
     except:
+        report_exception()
+
+
+def sendPhotoData(chat_id, file_data, filename):
+    from google.appengine.api import urlfetch
+    urlfetch.set_default_fetch_deadline(20)
+    try:
+        files = [('photo', (filename, file_data, 'image/png'))]
+        data = {
+            'chat_id': chat_id,
+        }
+        resp = requests.post(key.BASE_URL + 'sendPhoto', data=data, files=files)
+        logging.info('Response: {}'.format(resp.text))
+    except urllib2.HTTPError, err:
         report_exception()
 
 # ================================
@@ -229,7 +250,7 @@ def answerCallbackQueryGame(callback_query_id):
 # ================================
 def restart(p, msg=None):
     if msg:
-        tell(p.chat_id, msg)
+        send_message(p.chat_id, msg)
     redirectToState(p, 0)
 
 
@@ -249,7 +270,7 @@ def repeatState(p, **kwargs):
     methodName = "goToState" + str(p.state)
     method = possibles.get(methodName)
     if not method:
-        tell(p.chat_id, "Si è verificato un problema (" + methodName +
+        send_message(p.chat_id, "Si è verificato un problema (" + methodName +
               "). Segnalamelo mandando una messaggio a @kercos" + '\n' +
               "Ora verrai reindirizzato/a nella schermata iniziale.")
         restart(p)
@@ -274,18 +295,18 @@ def goToState0(p, **kwargs):
     # update notifications
     new_notifications_number = exercise_vocab.update_notifications(p)
     if new_notifications_number>0:
-        #tell(p.chat_id, "New notification!!")
+        #send_message(p.chat_id, "New notification!!")
         BUTTON_NUM_NOTIFICATIONS = '{} ({})'.format(BUTTON_NOTIFICATIONS, new_notifications_number)
         kb[1].insert(1, BUTTON_NUM_NOTIFICATIONS)
     if giveInstruction:
-        reply_txt = "Hi {}, let's play some language game!".format(p.getName())
-        tell(p.chat_id, reply_txt, kb)
+        reply_txt = "Let's play some language game!"
+        send_message(p.chat_id, reply_txt, kb)
     else:
         if input_text == '':
-            tell(p.chat_id, "Not a valid input.")
+            send_message(p.chat_id, "Not a valid input.")
         elif input_text == BUTTON_VOCAB_GAME:
             first_time_instructions = "Let’s play some vocabulary game!"
-            tell(p.chat_id, first_time_instructions)
+            send_message(p.chat_id, first_time_instructions)
             redirectToState(p, 3)
         elif input_text == BUTTON_SYNONYM_GAME:
             first_time_instructions = utility.unindent(
@@ -295,7 +316,7 @@ def goToState0(p, **kwargs):
                 Which words describe the highlighted parts best?
                 """
             )
-            tell(p.chat_id, first_time_instructions)
+            send_message(p.chat_id, first_time_instructions)
             sendWaitingAction(p.chat_id, sleep_time=1)
             redirectToState(p, 1)
         elif input_text == BUTTON_INTRUDER_GAME:
@@ -304,7 +325,7 @@ def goToState0(p, **kwargs):
                 Let’s find the intruder! 🐸
                 """
             )
-            tell(p.chat_id, first_time_instructions)
+            send_message(p.chat_id, first_time_instructions)
             sendWaitingAction(p.chat_id, sleep_time=1)
             redirectToState(p, 2)
         elif input_text.startswith(BUTTON_NOTIFICATIONS):
@@ -315,15 +336,14 @@ def goToState0(p, **kwargs):
                     r['response']) for r in notifications]  #r['exercise']
                 )
                 msg = "Notifications:\n{}".format(notifications_str)
-                tell(p.chat_id, msg)
+                send_message(p.chat_id, msg)
                 p.set_variable('notifications', [])
                 repeatState(p)
             else:
                 msg = "No notifications."
-                tell(p.chat_id, msg)
+                send_message(p.chat_id, msg)
         elif input_text == BUTTON_POINTS:
-            uid = "telegram_{}".format(p.chat_id)
-            response = exercise_vocab.get_points(uid)
+            response = exercise_vocab.get_points(p.player_id())
             summary = response['summary']
             earned_points = summary['earned_points']
             potential_points = summary['potential_points']
@@ -335,25 +355,27 @@ def goToState0(p, **kwargs):
                 🏅 Badges: {}
                 '''.format(earned_points, potential_points, badges)
             )
-            tell(p.chat_id, msg, kb)
+            send_message(p.chat_id, msg, kb)
         elif input_text == BUTTON_LEADERBOARD:
             leaderboard = exercise_vocab.get_leaderboard()
             leaderboard_sorted = sorted(leaderboard, key=lambda e: e["earned_points"], reverse=True)
-            leaderboard_sorted = leaderboard_sorted[:9]
-            board_rows = []
+            leaderboard_sorted = leaderboard_sorted[:9]            
+            board_rows = [['RANK', 'NAME', 'POINTS', 'BADGES']] #potential_points
+            alignment = 'clcc'
             for i in range(len(leaderboard_sorted)):
                 row = leaderboard_sorted[i]
                 medal = '🥇' if i==0 else '🥈' if i==1 else '🥉' if i==2 else str(i+1)
-                board_rows.append('{} {} {} {}'.format(medal, row['uid'], row['earned_points'], row['badges']))
-            msg = '\n'.join(board_rows)
-            tell(p.chat_id, msg, markdown=False)
-            pass
+                player_name = row['uname'] #utility.escapeMarkdown(row['uname'])
+                board_rows.append([medal, player_name, str(row['earned_points']), str(row['badges'])])
+            import render_leaderboard
+            imgData = render_leaderboard.getResultImage(board_rows,alignment)
+            sendPhotoData(p.chat_id, imgData, 'leaderboard.png')
         elif input_text == BUTTON_INFO:
-            tell(p.chat_id, INFO_TEXT, kb)
+            send_message(p.chat_id, INFO_TEXT, kb)
         elif p.chat_id in key.AMMINISTRATORI_ID:
             dealWithAdminCommands(p, input_text)
         else:
-            tell(p.chat_id, FROWNING_FACE + " Sorry, I don't understand what you have input")
+            send_message(p.chat_id, FROWNING_FACE + " Sorry, I don't understand what you have input")
 
 def dealWithAdminCommands(p, input_text):
     #splitCommandOnSpace = input_text.split(' ')
@@ -362,14 +384,21 @@ def dealWithAdminCommands(p, input_text):
         sendGame(p.chat_id)
     elif input_text == '/debug':
         msg = json.dumps(p.variables, indent=3)
-        tell(p.chat_id, msg)
+        send_message(p.chat_id, msg)
     elif input_text == '/testInline':
         kb = [['A'],['B'],['C']]
         inlineKb = utility.convertKeyboardToInlineKeyboard(kb)
         #logging.debug("InlineKb: {}".format(inlineKb))
-        tell(p.chat_id, "Test inline", kb = inlineKb, inlineKeyboardMarkup=True)
+        send_message(p.chat_id, "Test inline", kb = inlineKb, inlineKeyboardMarkup=True)
+    elif input_text == '/reset':
+        text = input_text.split()[1]
+        broadcast(sender_chat_id=p.chat_id, msg=text, restart_user=True)
+        #person.reset_registrations()
+    elif input_text == '/broadcast':
+        text = input_text.split()[1]
+        broadcast(sender_chat_id=p.chat_id, msg=text, restart_user=True)
     else:
-        tell(p.chat_id, FROWNING_FACE + " Sorry, I don't understand what you have input")
+        send_message(p.chat_id, FROWNING_FACE + " Sorry, I don't understand what you have input")
 
 # ================================
 # GO TO STATE 1: GAME SYNONYM
@@ -397,14 +426,14 @@ def goToState1(p, **kwargs):
         number_buttons = [str(x) for x in range(1,len(options)+1)]
         kb = utility.distributeElementMaxSize(number_buttons)
         kb.append([BUTTON_EXIT])
-        tell(p.chat_id, instructions, kb)
+        send_message(p.chat_id, instructions, kb)
         p.setLastExerciseNumberAndOptions(exerciseId, options)
     else:
         if input_text == '':
-            tell(p.chat_id, "Not a valid input.")
+            send_message(p.chat_id, "Not a valid input.")
         elif input_text == BUTTON_EXIT:
             restart(p)
-        #elif input_text == BUTTON_SKIP:
+        #elif input_text == BUTTON_DONT_KNOW:
         #    repeatState(p)
         else:
             exerciseId, exerciseOptions = p.getLastExerciseIdAndOptions()
@@ -415,20 +444,20 @@ def goToState1(p, **kwargs):
                 number = int(input_text)
                 chosenWord = exerciseOptions[number - 1]
             else:
-                #tell(p.chat_id, FROWNING_FACE + " Sorry, I don't understand what you have input")
+                #send_message(p.chat_id, FROWNING_FACE + " Sorry, I don't understand what you have input")
                 chosenWord = input_text
             msg = "You have chosen *{0}*.\n".format(chosenWord)
             sendWaitingAction(p.chat_id, sleep_time=0.5)
             if chosenWord in trueSynonymes:
                 msg += "😄 Great, your answer is correct!"
-                #kb = [[BUTTON_SKIP], [BUTTON_EXIT]]
+                #kb = [[BUTTON_DONT_KNOW], [BUTTON_EXIT]]
                 kb = [[BUTTON_EXIT]]
-                tell(p.chat_id, msg, kb)
+                send_message(p.chat_id, msg, kb)
                 sendWaitingAction(p.chat_id, sleep_time=1)
                 repeatState(p)
             else:
                 msg += "🙁 I'm sorry, your answer is NOT correct, try again"
-                tell(p.chat_id, msg)
+                send_message(p.chat_id, msg)
 
 def getSentenceWithBoldedWord(sentence, wordIndexToReplace, wordsToReplace):
     words = sentence.split()
@@ -457,14 +486,14 @@ def goToState2(p, **kwargs):
         kb = utility.distributeElementMaxSize(number_buttons)
         kb.append([BUTTON_NO_INTRUDER])
         kb.append([BUTTON_EXIT])
-        tell(p.chat_id, instructions, kb)
+        send_message(p.chat_id, instructions, kb)
         p.setLastExerciseNumberAndOptions(intruder_index, options)
     else:
         if input_text == '':
-            tell(p.chat_id, "Not a valid input.")
+            send_message(p.chat_id, "Not a valid input.")
         elif input_text == BUTTON_EXIT:
             restart(p)
-        #elif input_text == BUTTON_SKIP:
+        #elif input_text == BUTTON_DONT_KNOW:
         #    repeatState(p)
         else:
             intruder_index, exerciseOptions = p.getLastExerciseIdAndOptions()
@@ -476,7 +505,7 @@ def goToState2(p, **kwargs):
             else:
                 chosenWord = input_text
             if chosenWord not in exerciseOptions:
-                tell(p.chat_id, FROWNING_FACE + " Sorry, your answer is not valid")
+                send_message(p.chat_id, FROWNING_FACE + " Sorry, your answer is not valid")
                 sendWaitingAction(p.chat_id, sleep_time=1)
                 repeatState(p)
             else:
@@ -485,14 +514,14 @@ def goToState2(p, **kwargs):
                 chosen_index =  exerciseOptions.index(chosenWord) if chosenWord in exerciseOptions else None
                 if (chosenWord==BUTTON_NO_INTRUDER and intruder_index==-1) or chosen_index == intruder_index:
                     msg += "😄 Great, your answer is correct!"
-                    #kb = [[BUTTON_SKIP], [BUTTON_EXIT]]
+                    #kb = [[BUTTON_DONT_KNOW], [BUTTON_EXIT]]
                     kb = [[BUTTON_EXIT]]
-                    tell(p.chat_id, msg, kb)
+                    send_message(p.chat_id, msg, kb)
                     sendWaitingAction(p.chat_id, sleep_time=1)
                     repeatState(p)
                 else:
                     msg += "🙁 I'm sorry, your answer is NOT correct, try again"
-                    tell(p.chat_id, msg)
+                    send_message(p.chat_id, msg)
 
 # ================================
 # GO TO STATE 3: VOCABULARY GAME
@@ -501,27 +530,38 @@ def goToState2(p, **kwargs):
 def goToState3(p, **kwargs):    
     input_text = kwargs['input_text'] if 'input_text' in kwargs.keys() else None
     giveInstruction = input_text is None
-    uid = 'telegram_{}'.format(p.chat_id)    
+    player_id = p.player_id()
     if giveInstruction:        
-        response = exercise_vocab.get_exercise(uid)
+        #level = 'A1','A2',...
+        #etype = 'RelatedTo', 'AtLocation', 'PartOf'
+        response = exercise_vocab.get_exercise(player_id, elevel='A1', etype='AtLocation') # 'RelatedTo'
         r_eid = response['eid']
-        instructions = response['exercise'] # "exercise": "Name a thing that is located at a desk",                
+        exercise = response['exercise'] # "exercise": "Name a thing that is located at a desk",                
+        subject = response['subject']
+        exercise = exercise.replace(subject, '*{}*'.format(subject))
+        previous_responses = response["previous_responses"]
+        msg = exercise
+        if previous_responses:
+            msg += '\n\nYou previously inserted: *{}*'.format(' '.join(previous_responses))
         p.set_variable('eid',r_eid)
-        kb = [[BUTTON_SKIP],[BUTTON_EXIT]]
-        tell(p.chat_id, instructions, kb)        
+        p.set_variable('exercise',exercise)
+        kb = [[BUTTON_DONT_KNOW],[BUTTON_EXIT]]
+        send_message(p.chat_id, msg, kb)        
     else:
-        eid = p.get_variable('eid')
+        eid = p.get_variable('eid')        
         if input_text == '':
-            tell(p.chat_id, "Not a valid input.")        
+            send_message(p.chat_id, "Not a valid input.")        
         elif input_text == BUTTON_EXIT:
             restart(p)
-        elif input_text == BUTTON_SKIP:
-            response = exercise_vocab.store_response(uid, eid, None)            
-            msg = "Let's move to the next exercise!"
-            tell(p.chat_id, msg)            
-            repeatState(p)
+        elif input_text == BUTTON_DONT_KNOW:
+            response_json = exercise_vocab.get_random_response(eid, player_id)
+            msg = "No worries, a possible response would have been *{}*.".format(response_json['response'])
+            send_message(p.chat_id, msg, sleepDelay=True)            
+            exercise = p.get_variable('exercise')
+            send_message(p.chat_id, exercise)            
+            #repeatState(p)
         else:                        
-            response = exercise_vocab.store_response(uid, eid, input_text)
+            response = exercise_vocab.store_response(eid, player_id, input_text)
             r_points = response['points']
             if r_points>0:
                 msg = utility.unindent(
@@ -544,7 +584,7 @@ def goToState3(p, **kwargs):
                     🤞 This is a potential double point you can earn in the future if enough people confirm it!
                     '''.format(input_text)
                 )                
-            tell(p.chat_id, msg)
+            send_message(p.chat_id, msg)
             sendWaitingAction(p.chat_id, sleep_time=1)
             repeatState(p)            
             
@@ -616,18 +656,17 @@ class WebhookHandler(webapp2.RequestHandler):
         name = chat["first_name"]
         last_name = chat["last_name"] if "last_name" in chat else None
         username = chat["username"] if "username" in chat else None
-        location = message["location"] if "location" in message else None
+        #location = message["location"] if "location" in message else None
         contact = message["contact"] if "contact" in message else None
 
-        # u'contact': {u'phone_number': u'393496521697', u'first_name': u'Federico', u'last_name': u'Sangati',
-        #             u'user_id': 130870321}
-        # logging.debug('location: ' + str(location))
-
         def reply(msg=None, kb=None, markdown=False, inlineKeyboardMarkup=False):
-            tell(chat_id, msg, kb, markdown, inlineKeyboardMarkup)
+            send_message(chat_id, msg, kb, markdown, inlineKeyboardMarkup)
 
         p = person.getPersonByChatId(chat_id)
         user_name = 'telegram_{}'.format(chat_id)
+
+        if not exercise_vocab.is_user_registered(user_name):
+            exercise_vocab.add_user(user_name, name)
 
         if p is None:
             # new user
@@ -636,8 +675,7 @@ class WebhookHandler(webapp2.RequestHandler):
                 reply(INFO_TEXT)
             elif text.startswith("/start"):
                 tell_masters("New user: " + name)
-                p = person.addPerson(chat_id, name, last_name, username)                
-                exercise_vocab.add_user(user_name, name)
+                p = person.addPerson(chat_id, name, last_name, username)                                
                 reply("Hi {0}, welcome in LingoGameBot!".format(name))
                 restart(p)
             else:
@@ -645,8 +683,7 @@ class WebhookHandler(webapp2.RequestHandler):
                       "If you encounter any problem, please contact @kercos")
         else:
             # known user
-            p.updateUsername(username)
-            exercise_vocab.add_user(user_name, name)
+            p.updateUsername(username)            
             if text == '/state':
                 if p.state in STATES:
                     reply("You are in state " + str(p.state) + ": " + STATES[p.state])
@@ -664,12 +701,12 @@ class WebhookHandler(webapp2.RequestHandler):
 
     def handle_exception(self, exception, debug_mode):
         logging.exception(exception)
-        tell(key.FEDE_CHAT_ID, "❗ Detected Exception: " + str(exception), markdown=False)
+        send_message(key.FEDE_CHAT_ID, "❗ Detected Exception: " + str(exception), markdown=False)
 
 def report_exception():
     import traceback
     msg = "❗ Detected Exception: " + traceback.format_exc()
-    tell(key.FEDE_CHAT_ID, msg, markdown=False)
+    send_message(key.FEDE_CHAT_ID, msg, markdown=False)
     logging.error(msg)
 
 

@@ -28,6 +28,9 @@ handlers:
 - url: .*
   script: main.app
 
+- url: /fonts
+  static_dir: fonts
+  application_readable: true
 
 libraries:
 - name: webapp2

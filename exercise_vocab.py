@@ -16,62 +16,87 @@ def reset_db():
     logging.debug('add_user method. payload={} response={}'.format(payload, r.text))
     return r.json()
 
-def add_user(uid, first_name):
+def add_user(userid, uname):
     payload = {
         'method': 'add_user',
-        'uid': uid,
-        'first_name': first_name,
+        'userid': userid,
+        'uname': uname,
     }    
     r = requests.get(API_URL, params=payload)
     logging.debug('add_user method. payload={} response={}'.format(payload, r.text))
     return r.json()
     #"success": boolean
 
-def get_user_info(uid):
+def get_user_info(userid):
     payload = {
         'method': 'get_user_info',
-        'uid': uid,
+        'userid': userid,
     }    
     r = requests.get(API_URL, params=payload)
     logging.debug('add_user method. payload={} response={}'.format(payload, r.text))
     return r.json()
-    # "uid": string,
-    # "first_name": string
+    # "userid": string,
+    # "uname": string
 
+def is_user_registered(userid):
+    response_json = get_user_info(userid)
+    return len(response_json)>0
 
-def get_exercise(uid):
+#level = 'A1','A2',...
+#etype = 'RelatedTo', 'AtLocation', 'PartOf'
+def get_exercise(userid, elevel='A1', etype='RelatedTo'):
     payload = {
         'method': 'get_exercise',
-        'userid': uid
+        'userid': userid,
+        'elevel': elevel,
+        'etype': etype
     }    
     r = requests.get(API_URL, params=payload)
     logging.debug('get_exercise method. payload={} response={}'.format(payload, r.text))
     return r.json()
     # "eid": int,
-    # "uid": string,
-    # "exercise": string
+    # "userid": string,
+    # "exercise": string,
+    # "category": string, # "animals"
+    # "level": string,
+    # "relation": string, # "RelatedTo"
+    # "subject": string, (bird) # "bird"
+    # "previous_responses": list of strings
 
 
-def store_response(uid, eid, response):
+def store_response(eid, userid, response):
     payload = {
-        'method': 'store_response',
-        'userid': uid,
+        'method': 'store_response',        
         'eid': eid,
+        'userid': userid,                
         'response': response
     }    
     r = requests.get(API_URL, params=payload)
     logging.debug('store_response method. payload={} response={}'.format(payload, r.text))
     return r.json()
     # "eid": int,
-    # "uid": string,
+    # "userid": string,
     # "response": string,
     # "points": int/null (null means pending evaluation),
 
+def get_random_response(eid, userid):
+    payload = {
+        'method': 'get_random_response',        
+        'eid': eid,
+        'userid': userid,                
+    }    
+    r = requests.get(API_URL, params=payload)
+    logging.debug('get_random_response method. payload={} response={}'.format(payload, r.text))
+    return r.json()
+    # "eid": int,
+    # "userid": string,
+    # "response": string,
 
-def get_points(uid):
+
+def get_points(userid):
     payload = {
         'method': 'get_points',
-        'userid': uid,
+        'userid': userid,
     }    
     r = requests.get(API_URL, params=payload)
     logging.debug('get_points method. payload={} response={}'.format(payload, r.text))
@@ -85,7 +110,7 @@ def get_points(uid):
     # "responses": [
     #     {
     #         "eid": int,
-    #         "uid": string,
+    #         "userid": string,
     #         "response": string,
     #         "points": int/null (null means pending evaluation),
     #         "notified": boolean,
@@ -98,17 +123,17 @@ def get_points(uid):
 
 def update_notifications(p):
     notifications = p.get_variable('notifications', [])    
-    uid = 'telegram_{}'.format(p.chat_id)
-    new_notifications = get_notifications(uid)
+    userid = 'telegram_{}'.format(p.chat_id)
+    new_notifications = get_notifications(userid)
     if new_notifications:
         notifications.extend(new_notifications)
         p.set_variable('notifications', notifications)
     return len(notifications)
 
-def get_notifications(uid):
+def get_notifications(userid):
     payload = {
         'method': 'get_notifications',
-        'userid': uid,
+        'userid': userid,
     }    
     r = requests.get(API_URL, params=payload)
     logging.debug('get_notifications method. payload={} response={}'.format(payload, r.text))
@@ -118,7 +143,7 @@ def get_notifications(uid):
     # "responses": [
     #     {
     #         "eid": int,
-    #         "uid": string,
+    #         "userid": string,
     #         "exercise": string,
     #         "response": string,
     #         "points": int
@@ -136,7 +161,7 @@ def get_leaderboard():
     return r.json()
     # [
     # {
-    #     "uid": string,
+    #     "userid": string,
     #     "rank": int,
     #     "earned_points": int,
     #     "potential_points": int,
@@ -151,7 +176,7 @@ if __name__ == "__main__":
     '''
     {
         "eid": 1,
-        "uid": "2",
+        "userid": "2",
         "exercise": "Name a thing that is located at a desk",
         "relation": "AtLocation",
         "subject": "desk",

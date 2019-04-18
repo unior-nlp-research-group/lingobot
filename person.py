@@ -18,6 +18,9 @@ class Person(ndb.Model):
     lastExerciseOptions = ndb.StringProperty(repeated=True)
     variables = ndb.JsonProperty(indexed=False)
 
+    def player_id(self):
+        return 'telegram_{}'.format(self.chat_id)
+
     def getName(self):
         return self.name.encode('utf-8')
 
@@ -94,3 +97,13 @@ def getPersonByChatId(chat_id):
 def getPeopleWithLastName(lastName, number):
     lastName_uni = lastName.decode('utf-8')
     return Person.query(Person.last_name==lastName_uni).fetch(number)
+
+# def reset_registrations():
+#     next_curs = None
+#     more = False
+#     while not more:
+#         users, next_curs, more = Person.query().fetch_page(500, start_cursor=next_curs)
+#         for p in users:
+#             p.registered = False
+#             ndb.put_multi(users)
+#     return True
