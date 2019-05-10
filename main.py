@@ -305,8 +305,8 @@ def goToState0(p, **kwargs):
         if input_text == '':
             send_message(p.chat_id, "Not a valid input.")
         elif input_text == BUTTON_VOCAB_GAME:
-            first_time_instructions = "Let’s play some vocabulary game!"
-            send_message(p.chat_id, first_time_instructions)
+            # first_time_instructions = "Let’s play some vocabulary game!"
+            # send_message(p.chat_id, first_time_instructions)
             redirectToState(p, 3)
         elif input_text == BUTTON_SYNONYM_GAME:
             first_time_instructions = utility.unindent(
@@ -330,17 +330,19 @@ def goToState0(p, **kwargs):
             redirectToState(p, 2)
         elif input_text.startswith(BUTTON_NOTIFICATIONS):
             notifications = p.get_variable('notifications')
+            logging.debug("New notifications: {}".format(notifications))
             if len(notifications) > 0:
-                notifications_str = '\n'.join(["{} {}".format( # → {}
+                notifications_str = '\n'.join(["{} {}: {}".format( # → {}
                     '🏅' if r['badge'] else '•', 
+                    r['exercise'],
                     r['response']) for r in notifications]  #r['exercise']
                 )
-                msg = "Notifications:\n{}".format(notifications_str)
+                msg = "New potential points converted to real points:\n{}".format(notifications_str)
                 send_message(p.chat_id, msg)
                 p.set_variable('notifications', [])
                 repeatState(p)
             else:
-                msg = "No notifications."
+                msg = "No new points."
                 send_message(p.chat_id, msg)
         elif input_text == BUTTON_POINTS:
             response = exercise_vocab.get_points(p.player_id())
@@ -377,28 +379,93 @@ def goToState0(p, **kwargs):
         else:
             send_message(p.chat_id, FROWNING_FACE + " Sorry, I don't understand what you have input")
 
-def dealWithAdminCommands(p, input_text):
-    #splitCommandOnSpace = input_text.split(' ')
-    #commandBodyStartIndex = len(splitCommandOnSpace[0]) + 1
-    if input_text == '/testGame':
-        sendGame(p.chat_id)
-    elif input_text == '/debug':
-        msg = json.dumps(p.variables, indent=3)
-        send_message(p.chat_id, msg)
-    elif input_text == '/testInline':
-        kb = [['A'],['B'],['C']]
-        inlineKb = utility.convertKeyboardToInlineKeyboard(kb)
-        #logging.debug("InlineKb: {}".format(inlineKb))
-        send_message(p.chat_id, "Test inline", kb = inlineKb, inlineKeyboardMarkup=True)
-    elif input_text == '/reset':
-        text = input_text.split()[1]
-        broadcast(sender_chat_id=p.chat_id, msg=text, restart_user=True)
-        #person.reset_registrations()
-    elif input_text == '/broadcast':
-        text = input_text.split()[1]
-        broadcast(sender_chat_id=p.chat_id, msg=text, restart_user=True)
+
+# ================================
+# GO TO STATE 3: VOCABULARY GAME
+# ================================
+
+def goToState3(p, **kwargs):    
+    input_text = kwargs['input_text'] if 'input_text' in kwargs.keys() else None
+    giveInstruction = input_text is None
+    player_id = p.player_id()
+    if giveInstruction:        
+        #level = 'A1','A2',...
+        #etype = 'RelatedTo', 'AtLocation', 'PartOf'
+        response = exercise_vocab.get_exercise(player_id, elevel='', etype='RelatedTo')
+        r_eid = response['eid']
+        exercise = response['exercise'] # "exercise": "Name a thing that is located at a desk",                
+        subject = response['subject']
+        exercise = exercise[:exercise.rfind(subject)] + '*{}*'.format(subject)
+        previous_responses = response["previous_responses"]
+        msg = exercise
+        if previous_responses:
+            msg += '\n(you previously inserted: {})'.format(', '.join('*{}*'.format(pr) for pr in  previous_responses))
+        p.set_variable('eid',r_eid)
+        p.set_variable('exercise',exercise)
+        kb = [[BUTTON_DONT_KNOW],[BUTTON_EXIT]]
+        new_notifications_number = exercise_vocab.update_notifications(p)
+        if new_notifications_number>0:
+            #send_message(p.chat_id, "New notification!!")
+            BUTTON_NUM_NOTIFICATIONS = '{} ({})'.format(BUTTON_NOTIFICATIONS, new_notifications_number)
+            kb.insert(1, [BUTTON_NUM_NOTIFICATIONS])
+        send_message(p.chat_id, msg, kb)        
     else:
-        send_message(p.chat_id, FROWNING_FACE + " Sorry, I don't understand what you have input")
+        eid = p.get_variable('eid')        
+        if input_text == '':
+            send_message(p.chat_id, "Not a valid input.")        
+        elif input_text == BUTTON_EXIT:
+            restart(p)
+        elif input_text == BUTTON_DONT_KNOW:
+            response_json = exercise_vocab.get_random_response(eid, player_id)
+            msg = "No worries, a possible response would have been *{}*.".format(response_json['response'])
+            send_message(p.chat_id, msg, sleepDelay=True)            
+            exercise = p.get_variable('exercise')
+            send_message(p.chat_id, exercise)            
+            #repeatState(p)
+        elif input_text.startswith(BUTTON_NOTIFICATIONS):
+            notifications = p.get_variable('notifications')
+            logging.debug("New notifications: {}".format(notifications))
+            if len(notifications) > 0:
+                notifications_str = '\n'.join(["{} {}: {}".format( # → {}
+                    '🏅' if r['badge'] else '•', 
+                    r['exercise'],
+                    r['response']) for r in notifications]  #r['exercise']
+                )
+                msg = "New potential points converted to real points:\n{}".format(notifications_str)
+                send_message(p.chat_id, msg)
+                p.set_variable('notifications', [])
+                repeatState(p)
+            else:
+                msg = "No new points."
+                send_message(p.chat_id, msg)
+        else:                        
+            response = exercise_vocab.store_response(eid, player_id, input_text)
+            logging.debug("Response from store_response eid={}, player_id={}, input_text={}: {}".format(eid, player_id, input_text, response))
+            r_points = response['points']
+            if r_points>0:
+                msg = utility.unindent(
+                    '''
+                    You have inserted *{}*.\n
+                    👍 Good job! You earned *{} points*!
+                    '''.format(input_text, r_points)
+                )
+            elif r_points == 0:
+                msg = utility.unindent(
+                    '''
+                    You have inserted *{}*.\n 
+                    🙄 You get 0 points:  you have already entered this answer!
+                    '''.format(input_text)
+                )
+            elif r_points is None:
+                msg = utility.unindent(
+                    '''
+                    You have inserted *{}*. Thanks for your answer!\n 
+                    🤞 This is a potential double point you can earn in the future if enough people confirm it!
+                    '''.format(input_text)
+                )                
+            send_message(p.chat_id, msg)
+            sendWaitingAction(p.chat_id, sleep_time=1)
+            repeatState(p)         
 
 # ================================
 # GO TO STATE 1: GAME SYNONYM
@@ -521,72 +588,7 @@ def goToState2(p, **kwargs):
                     repeatState(p)
                 else:
                     msg += "🙁 I'm sorry, your answer is NOT correct, try again"
-                    send_message(p.chat_id, msg)
-
-# ================================
-# GO TO STATE 3: VOCABULARY GAME
-# ================================
-
-def goToState3(p, **kwargs):    
-    input_text = kwargs['input_text'] if 'input_text' in kwargs.keys() else None
-    giveInstruction = input_text is None
-    player_id = p.player_id()
-    if giveInstruction:        
-        #level = 'A1','A2',...
-        #etype = 'RelatedTo', 'AtLocation', 'PartOf'
-        response = exercise_vocab.get_exercise(player_id, elevel='A1', etype='AtLocation') # 'RelatedTo'
-        r_eid = response['eid']
-        exercise = response['exercise'] # "exercise": "Name a thing that is located at a desk",                
-        subject = response['subject']
-        exercise = exercise.replace(subject, '*{}*'.format(subject))
-        previous_responses = response["previous_responses"]
-        msg = exercise
-        if previous_responses:
-            msg += '\n\nYou previously inserted: *{}*'.format(' '.join(previous_responses))
-        p.set_variable('eid',r_eid)
-        p.set_variable('exercise',exercise)
-        kb = [[BUTTON_DONT_KNOW],[BUTTON_EXIT]]
-        send_message(p.chat_id, msg, kb)        
-    else:
-        eid = p.get_variable('eid')        
-        if input_text == '':
-            send_message(p.chat_id, "Not a valid input.")        
-        elif input_text == BUTTON_EXIT:
-            restart(p)
-        elif input_text == BUTTON_DONT_KNOW:
-            response_json = exercise_vocab.get_random_response(eid, player_id)
-            msg = "No worries, a possible response would have been *{}*.".format(response_json['response'])
-            send_message(p.chat_id, msg, sleepDelay=True)            
-            exercise = p.get_variable('exercise')
-            send_message(p.chat_id, exercise)            
-            #repeatState(p)
-        else:                        
-            response = exercise_vocab.store_response(eid, player_id, input_text)
-            r_points = response['points']
-            if r_points>0:
-                msg = utility.unindent(
-                    '''
-                    You have inserted *{}*. 
-                    Good job! 👍 You earned *{} points*!
-                    '''.format(input_text, r_points)
-                )
-            elif r_points == 0:
-                msg = utility.unindent(
-                    '''
-                    You have inserted *{}*. 
-                    You have already entered this answer. You get 0 points! 🙄 
-                    '''.format(input_text)
-                )
-            elif r_points is None:
-                msg = utility.unindent(
-                    '''
-                    You have inserted *{}*. Thanks for your answer! 
-                    🤞 This is a potential double point you can earn in the future if enough people confirm it!
-                    '''.format(input_text)
-                )                
-            send_message(p.chat_id, msg)
-            sendWaitingAction(p.chat_id, sleep_time=1)
-            repeatState(p)            
+                    send_message(p.chat_id, msg)   
             
 # ================================
 # ================================
@@ -621,6 +623,28 @@ def dealWithCallbackQuery(callback_query):
         return
     logging.debug('callback query not recognized')
 
+def dealWithAdminCommands(p, input_text):
+    #splitCommandOnSpace = input_text.split(' ')
+    #commandBodyStartIndex = len(splitCommandOnSpace[0]) + 1
+    if input_text == '/testGame':
+        sendGame(p.chat_id)
+    elif input_text == '/debug':
+        msg = json.dumps(p.variables, indent=3)
+        send_message(p.chat_id, msg)
+    elif input_text == '/testInline':
+        kb = [['A'],['B'],['C']]
+        inlineKb = utility.convertKeyboardToInlineKeyboard(kb)
+        #logging.debug("InlineKb: {}".format(inlineKb))
+        send_message(p.chat_id, "Test inline", kb = inlineKb, inlineKeyboardMarkup=True)
+    elif input_text == '/reset':
+        text = input_text.split()[1]
+        broadcast(sender_chat_id=p.chat_id, msg=text, restart_user=True)
+        #person.reset_registrations()
+    elif input_text == '/broadcast':
+        text = input_text.split()[1]
+        broadcast(sender_chat_id=p.chat_id, msg=text, restart_user=True)
+    else:
+        send_message(p.chat_id, FROWNING_FACE + " Sorry, I don't understand what you have input")
 
 # ================================
 # ================================
