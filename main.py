@@ -441,29 +441,35 @@ def goToState3(p, **kwargs):
         else:                        
             response = exercise_vocab.store_response(eid, player_id, input_text)
             logging.debug("Response from store_response eid={}, player_id={}, input_text={}: {}".format(eid, player_id, input_text, response))
-            r_points = response['points']
-            if r_points>0:
-                msg = utility.unindent(
-                    '''
-                    You have inserted *{}*.\n
-                    👍 Good job! You earned *{} points*!
-                    '''.format(input_text, r_points)
-                )
-            elif r_points == 0:
-                msg = utility.unindent(
-                    '''
-                    You have inserted *{}*.\n 
-                    🙄 You get 0 points:  you have already entered this answer!
-                    '''.format(input_text)
-                )
-            elif r_points is None:
-                msg = utility.unindent(
-                    '''
-                    You have inserted *{}*. Thanks for your answer!\n 
-                    🤞 This is a potential double point you can earn in the future if enough people confirm it!
-                    '''.format(input_text)
-                )                
-            send_message(p.chat_id, msg)
+            if 'points' in response:
+                r_points = response['points']
+                if r_points>0:
+                    msg = utility.unindent(
+                        '''
+                        You have inserted *{}*.\n
+                        👍 Good job! You earned *{} points*!
+                        '''.format(input_text, r_points)
+                    )
+                elif r_points == 0:
+                    msg = utility.unindent(
+                        '''
+                        You have inserted *{}*.\n 
+                        🙄 You get 0 points:  you have already entered this answer!
+                        '''.format(input_text)
+                    )
+                elif r_points is None:
+                    msg = utility.unindent(
+                        '''
+                        You have inserted *{}*. Thanks for your answer!\n 
+                        🤞 This is a potential double point you can earn in the future if enough people confirm it!
+                        '''.format(input_text)
+                    )                
+                send_message(p.chat_id, msg)
+            else:
+                # debugging
+                error_msg = response['error']
+                msg = 'Backend found an error: {}.\nPlease report this to @kercos'.format(error_msg)
+                send_message(p.chat_id, msg)
             sendWaitingAction(p.chat_id, sleep_time=1)
             repeatState(p)         
 
