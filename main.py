@@ -110,7 +110,7 @@ def getInfoCount():
 
 def tell_masters(msg):
     for id in key.MASTER_CHAT_ID:
-        send_message(id, msg)
+        send_message(id, msg, markdown=False)
 
 def tellAdministrators(msg):
     for id in key.AMMINISTRATORI_ID:
