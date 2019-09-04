@@ -48,7 +48,10 @@ BULLET_RICHIESTA = '🔹'
 BULLET_OFFERTA = '🔸'
 BULLET_POINT = '🔸'
 
-BUTTON_VOCAB_GAME = "🎯 PLAY VOCABULARY GAME"
+BUTTON_YES = "✅ YES"
+BUTTON_NO = "❌ NO"
+BUTTON_VOCAB_GAME = "🎯 VOCABULARY GAME"
+BUTTON_CLOSE_GAME = "✔️ CHECK GAME"
 BUTTON_SYNONYM_GAME = "🖇 SYNONYM GAME"
 BUTTON_INTRUDER_GAME = "🐸 INTRUDER GAME"
 BUTTON_ACCEPT = CHECK + " ACCEPT"
@@ -286,7 +289,7 @@ def goToState0(p, **kwargs):
     input_text = kwargs['input_text'] if 'input_text' in kwargs.keys() else None
     giveInstruction = input_text is None
     kb = [
-        [BUTTON_VOCAB_GAME],
+        [BUTTON_VOCAB_GAME, BUTTON_CLOSE_GAME],
         #[BUTTON_SYNONYM_GAME,BUTTON_INTRUDER_GAME],
         [BUTTON_POINTS, BUTTON_LEADERBOARD],
         [BUTTON_INFO]
@@ -308,6 +311,8 @@ def goToState0(p, **kwargs):
             # first_time_instructions = "Let’s play some vocabulary game!"
             # send_message(p.chat_id, first_time_instructions)
             redirectToState(p, 3)
+        elif input_text == BUTTON_CLOSE_GAME:
+            redirectToState(p, 4)
         elif input_text == BUTTON_SYNONYM_GAME:
             first_time_instructions = utility.unindent(
                 """
@@ -472,6 +477,46 @@ def goToState3(p, **kwargs):
                 send_message(p.chat_id, msg)
             sendWaitingAction(p.chat_id, sleep_time=1)
             repeatState(p)         
+
+
+# ================================
+# GO TO STATE 3: CLOSE GAME
+# ================================
+
+def goToState4(p, **kwargs):    
+    input_text = kwargs['input_text'] if 'input_text' in kwargs.keys() else None
+    giveInstruction = input_text is None
+    player_id = p.player_id()
+    if giveInstruction:        
+        #level = 'A1','A2',...
+        #etype = 'RelatedTo', 'AtLocation', 'PartOf'
+        response = exercise_vocab.get_close_exercise(player_id, elevel='', etype='RelatedTo')
+        r_eid = response['eid']
+        exercise = response['exercise'] # "exercise": "Is it true that sheep is related to herd?",
+        subject = response['subject']
+        # if subject in exercise:
+        #     exercise = exercise[:exercise.rfind(subject)] + '*{}*'.format(subject)
+        msg = exercise
+        p.set_variable('eid',r_eid)
+        p.set_variable('exercise',exercise)
+        kb = [[BUTTON_YES,BUTTON_NO],[BUTTON_DONT_KNOW], [BUTTON_EXIT]]
+        send_message(p.chat_id, msg, kb)        
+    else:
+        eid = p.get_variable('eid')        
+        if input_text == '':
+            send_message(p.chat_id, "Not a valid input.")        
+        elif input_text == BUTTON_EXIT:
+            restart(p)
+        elif input_text in [BUTTON_YES,BUTTON_NO,BUTTON_DONT_KNOW]:
+            response = 1 if input_text==BUTTON_YES else -1 if input_text==BUTTON_NO else 0
+            exercise_vocab.store_close_response(eid, player_id, response)
+            msg = "Thanks for your help!"
+            send_message(p.chat_id, msg, sleepDelay=True)            
+            sendWaitingAction(p.chat_id, sleep_time=1)
+            repeatState(p)
+        else:
+            send_message(p.chat_id, "Not a valid input, please press one of the buttons below.")        
+
 
 # ================================
 # GO TO STATE 1: GAME SYNONYM

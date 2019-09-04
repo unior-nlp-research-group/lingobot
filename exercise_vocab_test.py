@@ -91,6 +91,15 @@ def test_get_exercise():
     exercise_json = exercise_vocab.get_exercise(USER1_UID, elevel='A1', etype='LocatedAt')
     print("Exercise response:\n{}".format(json.dumps(exercise_json, indent=3)))
 
+def test_get_close_exercise():
+    exercise_vocab.add_user(USER1_UID, USER1_NAME)
+    exercise_json = exercise_vocab.get_close_exercise(USER1_UID, elevel='A1', etype='RelatedTo') #RelatedTo, LocatedAt
+    print("Exercise response:\n{}".format(json.dumps(exercise_json, indent=3)))
+    store_response_json = exercise_vocab.store_close_response(exercise_json['eid'], USER1_UID, 2)
+    print("Exercise store response:\n{}".format(json.dumps(store_response_json, indent=3)))
+
+
+
 def test_random_response():
     exercise_vocab.add_user(USER1_UID, USER1_NAME)
     exercise_json = exercise_vocab.get_exercise(USER1_UID)
@@ -106,12 +115,13 @@ def test_leaderboard():
     
 
 if __name__ == "__main__": 
-    exercise_vocab.reset_db()
+    #exercise_vocab.reset_db()
     
     #test_user_info()
     #test_random_answers()
     #test_valid_answer()
     #test_notifications()
-    test_get_exercise()
+    #test_get_exercise()
     #test_leaderboard()
     #test_random_response()
+    test_get_close_exercise()

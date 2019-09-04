@@ -63,8 +63,45 @@ def get_exercise(userid, elevel='A1', etype='RelatedTo'):
     # "subject": string, (bird) # "bird"
     # "previous_responses": list of strings
 
+#level = 'A1','A2',...
+#etype = 'RelatedTo', 'AtLocation', 'PartOf'
+def get_close_exercise(userid, elevel='A1', etype='RelatedTo'):
+    payload = {
+        'method': 'get_close_exercise',
+        'userid': userid,
+        'elevel': elevel,
+        'etype': etype
+    }    
+    r = requests.get(API_URL, params=payload)
+    logging.debug('get_close_exercise method. payload={} response={}'.format(payload, r.text))
+    return r.json()
+    # "category": "animal", 
+    # "language": "en", 
+    # "level": "A1", 
+    # "object": "herd", 
+    # "userid": "telegram_130870321", 
+    # "relation": "RelatedTo", 
+    # "eid": 5, 
+    # "eid_originated": 7, 
+    # "exercise": "Is it true that sheep is related to herd?", 
+    # "subject": "sheep"
 
 def store_response(eid, userid, response):
+    payload = {
+        'method': 'store_response',        
+        'eid': eid,
+        'userid': userid,                
+        'response': response
+    }    
+    r = requests.get(API_URL, params=payload)
+    logging.debug('store_response method. payload={} response={}'.format(payload, r.text))
+    return r.json()
+    # "eid": int,
+    # "userid": string,
+    # "response": string,
+    # "points": int/null (null means pending evaluation),
+
+def store_close_response(eid, userid, response):
     payload = {
         'method': 'store_response',        
         'eid': eid,
