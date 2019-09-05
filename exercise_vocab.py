@@ -103,7 +103,7 @@ def store_response(eid, userid, response):
 
 def store_close_response(eid, userid, response):
     payload = {
-        'method': 'store_response',        
+        'method': 'store_close_response',        
         'eid': eid,
         'userid': userid,                
         'response': response
