@@ -72,14 +72,6 @@ BUTTON_INFO = "ℹ INFO"
 # ================================
 
 
-INFO_TEXT = "CrowdFest - Task3 - Vocabulary trainer"
-
-
-# ================================
-# ================================
-# ================================
-
-
 def broadcast(sender_chat_id, msg, restart_user=False, curs=None, enabledCount = 0):    
     try:
         users, next_curs, more = Person.query().fetch_page(500, start_cursor=curs)
@@ -379,7 +371,11 @@ def goToState0(p, **kwargs):
             imgData = render_leaderboard.getResultImage(board_rows,alignment)
             sendPhotoData(p.chat_id, imgData, 'leaderboard.png')
         elif input_text == BUTTON_INFO:
-            send_message(p.chat_id, INFO_TEXT, kb)
+            msg = (
+                "Vocabulary trainer (EnetCollect CrowdFest Task3)"
+                "\nYour id: {}"
+            ).format(p.chat_id)
+            send_message(p.chat_id, msg, kb)
         elif p.chat_id in key.AMMINISTRATORI_ID:
             dealWithAdminCommands(p, input_text)
         else:
@@ -419,10 +415,11 @@ def goToState3(p, **kwargs):
     player_id = p.player_id()
     kb = [[BUTTON_DONT_KNOW],[BUTTON_EXIT]]
     if giveInstruction:        
-        #level = 'A1','A2',...
+        #elevel = 'A1','A2',...
         #etype = 'RelatedTo', 'AtLocation', 'PartOf'
-        response = exercise_vocab.get_exercise(player_id, elevel='', etype='RelatedTo')
+        response = exercise_vocab.get_exercise(player_id) #elevel='', etype=''        
         r_eid = response['eid']
+        wiki_url = response.get('hint_url', None)
         exercise = response['exercise'] # "exercise": "Name a thing that is located at a desk",                
         subject = response['subject']
         exercise = exercise[:exercise.rfind(subject)] + '*{}*'.format(subject)
@@ -430,6 +427,8 @@ def goToState3(p, **kwargs):
         msg = exercise
         if previous_responses:
             msg += '\n(you previously inserted: {})'.format(', '.join('*{}*'.format(pr) for pr in  previous_responses))
+        if wiki_url:
+            msg += '\n\nFor some inspiration check out\n{}'.format(wiki_url)
         p.set_variable('eid',r_eid)
         p.set_variable('exercise',exercise)        
         BUTTON_NUM_NOTIFICATIONS = get_notification_button(p, debug=False)
