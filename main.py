@@ -50,8 +50,8 @@ BULLET_POINT = '🔸'
 
 BUTTON_YES = "✅ YES"
 BUTTON_NO = "❌ NO"
-BUTTON_VOCAB_GAME = "🎯 VOCABULARY GAME"
-BUTTON_CLOSE_GAME = "✔️ CHECK GAME"
+BUTTON_VOCAB_GAME = "🎯 PLAY VOCABULARY GAME"
+# BUTTON_CLOSE_GAME = "✔️ CHECK GAME"
 BUTTON_SYNONYM_GAME = "🖇 SYNONYM GAME"
 BUTTON_INTRUDER_GAME = "🐸 INTRUDER GAME"
 BUTTON_ACCEPT = CHECK + " ACCEPT"
@@ -121,11 +121,16 @@ def tellAdministrators(msg):
 
 
 def send_message(chat_id, msg, kb=None, markdown=True, inlineKeyboardMarkup=False,
-         one_time_keyboard=False, sleepDelay=False):
-    replyMarkup = {
-        'resize_keyboard': True,
-        'one_time_keyboard': one_time_keyboard
-    }
+         one_time_keyboard=False, sleepDelay=False, remove_keyboard=False):
+    if remove_keyboard:
+        replyMarkup = { #ReplyKeyboardHide
+            'remove_keyboard': remove_keyboard
+        }
+    else:
+        replyMarkup = {
+            'resize_keyboard': True,
+            'one_time_keyboard': one_time_keyboard
+        }
     if kb:
         if inlineKeyboardMarkup:
             replyMarkup['inline_keyboard'] = kb
@@ -289,7 +294,7 @@ def goToState0(p, **kwargs):
     input_text = kwargs['input_text'] if 'input_text' in kwargs.keys() else None
     giveInstruction = input_text is None
     kb = [
-        [BUTTON_VOCAB_GAME, BUTTON_CLOSE_GAME],
+        [BUTTON_VOCAB_GAME],
         #[BUTTON_SYNONYM_GAME,BUTTON_INTRUDER_GAME],
         [BUTTON_POINTS, BUTTON_LEADERBOARD],
         [BUTTON_INFO]
@@ -308,11 +313,7 @@ def goToState0(p, **kwargs):
         if input_text == '':
             send_message(p.chat_id, "Not a valid input.")
         elif input_text == BUTTON_VOCAB_GAME:
-            # first_time_instructions = "Let’s play some vocabulary game!"
-            # send_message(p.chat_id, first_time_instructions)
-            redirectToState(p, 3)
-        elif input_text == BUTTON_CLOSE_GAME:
-            redirectToState(p, 4)
+            redirect_to_exercise_type(p)            
         elif input_text == BUTTON_SYNONYM_GAME:
             first_time_instructions = utility.unindent(
                 """
@@ -385,6 +386,29 @@ def goToState0(p, **kwargs):
             send_message(p.chat_id, FROWNING_FACE + " Sorry, I don't understand what you have input")
 
 
+def redirect_to_exercise_type(p):
+    type_of_exercise = exercise_vocab.choose_exercise(p.player_id())["exercise_type"]
+    assert type_of_exercise in ['open','close']
+    logging.debug("New exercise of type: {}".format(type_of_exercise))
+    if type_of_exercise=='open':
+        # first_time_instructions = "Let’s play some vocabulary game!"
+        # send_message(p.chat_id, first_time_instructions)
+        redirectToState(p, 3)
+    else:
+        redirectToState(p, 4)
+
+def get_notification_button(p, debug=False):
+    new_notifications_number = exercise_vocab.update_notifications(p)
+    if new_notifications_number>0:
+        #send_message(p.chat_id, "New notification!!")
+        BUTTON_NUM_NOTIFICATIONS = '{} ({})'.format(BUTTON_NOTIFICATIONS, new_notifications_number)
+        return BUTTON_NUM_NOTIFICATIONS
+    elif debug and random.choice([True, False]):
+        # testing if it works
+        BUTTON_NUM_NOTIFICATIONS = '{} ({})'.format(BUTTON_NOTIFICATIONS, 0)
+        return BUTTON_NUM_NOTIFICATIONS
+    return None
+
 # ================================
 # GO TO STATE 3: VOCABULARY GAME
 # ================================
@@ -393,6 +417,7 @@ def goToState3(p, **kwargs):
     input_text = kwargs['input_text'] if 'input_text' in kwargs.keys() else None
     giveInstruction = input_text is None
     player_id = p.player_id()
+    kb = [[BUTTON_DONT_KNOW],[BUTTON_EXIT]]
     if giveInstruction:        
         #level = 'A1','A2',...
         #etype = 'RelatedTo', 'AtLocation', 'PartOf'
@@ -406,12 +431,9 @@ def goToState3(p, **kwargs):
         if previous_responses:
             msg += '\n(you previously inserted: {})'.format(', '.join('*{}*'.format(pr) for pr in  previous_responses))
         p.set_variable('eid',r_eid)
-        p.set_variable('exercise',exercise)
-        kb = [[BUTTON_DONT_KNOW],[BUTTON_EXIT]]
-        new_notifications_number = exercise_vocab.update_notifications(p)
-        if new_notifications_number>0:
-            #send_message(p.chat_id, "New notification!!")
-            BUTTON_NUM_NOTIFICATIONS = '{} ({})'.format(BUTTON_NOTIFICATIONS, new_notifications_number)
+        p.set_variable('exercise',exercise)        
+        BUTTON_NUM_NOTIFICATIONS = get_notification_button(p, debug=False)
+        if BUTTON_NUM_NOTIFICATIONS:
             kb.insert(1, [BUTTON_NUM_NOTIFICATIONS])
         send_message(p.chat_id, msg, kb)        
     else:
@@ -423,10 +445,11 @@ def goToState3(p, **kwargs):
         elif input_text == BUTTON_DONT_KNOW:
             response_json = exercise_vocab.get_random_response(eid, player_id)
             msg = "No worries, a possible response would have been *{}*.".format(response_json['response'])
-            send_message(p.chat_id, msg, sleepDelay=True)            
+            send_message(p.chat_id, msg, sleepDelay=True, remove_keyboard=True)            
+            sendWaitingAction(p.chat_id, sleep_time=1)
             exercise = p.get_variable('exercise')
-            send_message(p.chat_id, exercise)            
-            #repeatState(p)
+            send_message(p.chat_id, exercise, kb)  
+            # repeat the same question and stay in current state
         elif input_text.startswith(BUTTON_NOTIFICATIONS):
             notifications = p.get_variable('notifications')
             logging.debug("New notifications: {}".format(notifications))
@@ -437,12 +460,15 @@ def goToState3(p, **kwargs):
                     r['response']) for r in notifications]  #r['exercise']
                 )
                 msg = "New potential points converted to real points:\n{}".format(notifications_str)
-                send_message(p.chat_id, msg)
+                send_message(p.chat_id, msg, kb)
                 p.set_variable('notifications', [])
-                repeatState(p)
+                repeatState(p)                
             else:
                 msg = "No new points."
-                send_message(p.chat_id, msg)
+                send_message(p.chat_id, msg, kb)   
+            sendWaitingAction(p.chat_id, sleep_time=1)
+            exercise = p.get_variable('exercise')
+            send_message(p.chat_id, exercise, kb)  
         else:                        
             response = exercise_vocab.store_response(eid, player_id, input_text)
             logging.debug("Response from store_response eid={}, player_id={}, input_text={}: {}".format(eid, player_id, input_text, response))
@@ -476,7 +502,8 @@ def goToState3(p, **kwargs):
                 msg = 'Backend found an error: {}.\nPlease report this to @kercos'.format(error_msg)
                 send_message(p.chat_id, msg)
             sendWaitingAction(p.chat_id, sleep_time=1)
-            repeatState(p)         
+            # repeatState(p)         
+            redirect_to_exercise_type(p)
 
 
 # ================================
@@ -511,9 +538,10 @@ def goToState4(p, **kwargs):
             response = 1 if input_text==BUTTON_YES else -1 if input_text==BUTTON_NO else 0
             exercise_vocab.store_close_response(eid, player_id, response)
             msg = "Thanks for your help!"
-            send_message(p.chat_id, msg, sleepDelay=True)            
+            send_message(p.chat_id, msg, sleepDelay=True, remove_keyboard=True)            
             sendWaitingAction(p.chat_id, sleep_time=1)
-            repeatState(p)
+            # repeatState(p)
+            redirect_to_exercise_type(p)
         else:
             send_message(p.chat_id, "Not a valid input, please press one of the buttons below.")        
 

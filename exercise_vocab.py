@@ -42,6 +42,16 @@ def is_user_registered(userid):
     response_json = get_user_info(userid)
     return len(response_json)>0
 
+# Choose the exercise type that should be presented to the user.
+def choose_exercise(userid, elevel='A1', etype='RelatedTo'):
+    payload = {
+        'method': 'choose_exercise',
+        'userid': userid
+    }    
+    r = requests.get(API_URL, params=payload)
+    logging.debug('choose_exercise method. payload={} response={}'.format(payload, r.text))
+    return r.json()
+
 #level = 'A1','A2',...
 #etype = 'RelatedTo', 'AtLocation', 'PartOf'
 def get_exercise(userid, elevel='A1', etype='RelatedTo'):

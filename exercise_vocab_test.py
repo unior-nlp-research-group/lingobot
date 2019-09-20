@@ -91,6 +91,11 @@ def test_get_exercise():
     exercise_json = exercise_vocab.get_exercise(USER1_UID, elevel='A1', etype='LocatedAt')
     print("Exercise response:\n{}".format(json.dumps(exercise_json, indent=3)))
 
+def test_choose_exercise():
+    exercise_vocab.add_user(USER1_UID, USER1_NAME)
+    response_json = exercise_vocab.choose_exercise(USER1_UID)
+    print("Exercise response:\n{}".format(json.dumps(response_json, indent=3)))
+
 def test_get_close_exercise():
     exercise_vocab.add_user(USER1_UID, USER1_NAME)
     exercise_json = exercise_vocab.get_close_exercise(USER1_UID, elevel='A1', etype='RelatedTo') #RelatedTo, LocatedAt
@@ -124,4 +129,5 @@ if __name__ == "__main__":
     #test_get_exercise()
     #test_leaderboard()
     #test_random_response()
-    test_get_close_exercise()
+    # test_get_close_exercise()
+    test_choose_exercise()
