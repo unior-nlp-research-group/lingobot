@@ -380,6 +380,7 @@ def goToState0(p, **kwargs):
             dealWithAdminCommands(p, input_text)
         else:
             send_message(p.chat_id, FROWNING_FACE + " Sorry, I don't understand what you have input")
+            
 
 
 def redirect_to_exercise_type(p):
