@@ -372,8 +372,9 @@ def goToState0(p, **kwargs):
             sendPhotoData(p.chat_id, imgData, 'leaderboard.png')
         elif input_text == BUTTON_INFO:
             msg = (
-                "Vocabulary trainer (EnetCollect CrowdFest Task3)"
-                "\nYour id: {}"
+                "Vocabulary trainer on word relations for vocabulary of level C1."
+                "\nRelated-to words can be single words or multiword expressions of any word class."
+                "\n\nYour telegram id: {}"
             ).format(p.chat_id)
             send_message(p.chat_id, msg, kb)
         elif p.chat_id in key.AMMINISTRATORI_ID:
@@ -419,6 +420,16 @@ def goToState3(p, **kwargs):
         #elevel = 'A1','A2',...
         #etype = 'RelatedTo', 'AtLocation', 'PartOf'
         response = exercise_vocab.get_exercise(player_id) #elevel='', etype=''        
+        if response is None:
+            report_msg = "None risponse in get_exercise ({})".format(player_id)
+            send_message(key.FEDE_CHAT_ID, report_msg, markdown=False)
+            repeatState(p)
+            return
+        if response.get('success', True) == False:
+            report_msg = 'Detected success false in get_exercise ({})'.format(player_id)
+            send_message(key.FEDE_CHAT_ID, report_msg, markdown=False)
+            repeatState(p)
+            return
         r_eid = response['eid']
         wiki_url = response.get('hint_url', None)
         exercise = response['exercise'] # "exercise": "Name a thing that is located at a desk",                
@@ -431,7 +442,8 @@ def goToState3(p, **kwargs):
         if wiki_url:
             msg += '\n\nFor some inspiration check out\n{}'.format(wiki_url)
         p.set_variable('eid',r_eid)
-        p.set_variable('exercise',exercise)        
+        p.set_variable('exercise',exercise)   
+        p.set_variable('subject',subject)        
         BUTTON_NUM_NOTIFICATIONS = get_notification_button(p, debug=False)
         if BUTTON_NUM_NOTIFICATIONS:
             kb.insert(1, [BUTTON_NUM_NOTIFICATIONS])
@@ -469,17 +481,26 @@ def goToState3(p, **kwargs):
             sendWaitingAction(p.chat_id, sleep_time=1)
             exercise = p.get_variable('exercise')
             send_message(p.chat_id, exercise, kb)  
-        else:                        
+        else:                
+            subject = p.get_variable('subject') 
+            if input_text == subject:
+                msg = "❌ You have inserted the same word of the exercise (*{}*)".format(subject)
+                send_message(p.chat_id, msg, sleepDelay=True, remove_keyboard=True)            
+                sendWaitingAction(p.chat_id, sleep_time=1)
+                exercise = p.get_variable('exercise')
+                send_message(p.chat_id, exercise, kb)  
+                return
             response = exercise_vocab.store_response(eid, player_id, input_text)
             logging.debug("Response from store_response eid={}, player_id={}, input_text={}: {}".format(eid, player_id, input_text, response))
             if 'points' in response:
                 r_points = response['points']
+                points_str = '*{} points*'.format(r_points) if r_points>1 else '*1 point*'
                 if r_points>0:
                     msg = utility.unindent(
                         '''
                         You have inserted *{}*.\n
-                        👍 Good job! You earned *{} points*!
-                        '''.format(input_text, r_points)
+                        👍 Good job! You earned {}
+                        '''.format(input_text, points_str)
                     )
                 elif r_points == 0:
                     msg = utility.unindent(
@@ -517,10 +538,25 @@ def goToState4(p, **kwargs):
     if giveInstruction:        
         #level = 'A1','A2',...
         #etype = 'RelatedTo', 'AtLocation', 'PartOf'
-        response = exercise_vocab.get_close_exercise(player_id, elevel='', etype='RelatedTo')
+        response = exercise_vocab.get_close_exercise(player_id) #elevel='', etype='RelatedTo'
+        if response is None:
+            report_msg = "None risponse in get_close_exercise ({})".format(player_id)
+            send_message(key.FEDE_CHAT_ID, report_msg, markdown=False)
+            repeatState(p)
+            return
+        if response.get('success', True) == False:
+            report_msg = 'Detected success false in get_close_exercise ({})'.format(player_id)
+            send_message(key.FEDE_CHAT_ID, report_msg, markdown=False)
+            repeatState(p)
+            return
         r_eid = response['eid']
         exercise = response['exercise'] # "exercise": "Is it true that sheep is related to herd?",
-        subject = response['subject']
+        exercise = re.sub(
+            r"Is it true that (.+) is related to (.+)\?", 
+            r"Is it true that *\1* is related to *\2*?", 
+            exercise
+        )
+        # subject = response['subject']
         # if subject in exercise:
         #     exercise = exercise[:exercise.rfind(subject)] + '*{}*'.format(subject)
         msg = exercise
@@ -536,8 +572,13 @@ def goToState4(p, **kwargs):
             restart(p)
         elif input_text in [BUTTON_YES,BUTTON_NO,BUTTON_DONT_KNOW]:
             response = 1 if input_text==BUTTON_YES else -1 if input_text==BUTTON_NO else 0
-            exercise_vocab.store_close_response(eid, player_id, response)
-            msg = "Thanks for your help!"
+            evalutaion_json = exercise_vocab.store_close_response(eid, player_id, response)
+            if response==0:
+                correct_response = BUTTON_YES if evalutaion_json['correct_response'] == 1 else BUTTON_NO
+                msg = "💪 Don’t worry, the correct response was {}.".format(correct_response)    
+            else:
+                correct = evalutaion_json['points']==1            
+                msg = "👍 Correct!" if correct else "👎 Wrong (according to the information we currently have)."
             send_message(p.chat_id, msg, sleepDelay=True, remove_keyboard=True)            
             sendWaitingAction(p.chat_id, sleep_time=1)
             # repeatState(p)
@@ -779,7 +820,7 @@ class WebhookHandler(webapp2.RequestHandler):
             elif text.startswith("/start"):
                 tell_masters("New user: " + name)
                 p = person.addPerson(chat_id, name, last_name, username)                                
-                reply("Hi {0}, welcome in LingoGameBot!".format(name))
+                send_message(p.chat_id, "Hi {0}, welcome in LingoGameBot!\n\n*By using this bot you agree that your data is recorded and processed within a scientific experiment.*".format(name))
                 restart(p)
             else:
                 reply("Press on /start if you want to begin. "
@@ -793,7 +834,7 @@ class WebhookHandler(webapp2.RequestHandler):
                 else:
                     reply("You are in state " + str(p.state))
             elif text.startswith("/start"):
-                reply("Hi {0}, welcome back in LingoGameBot!".format(name))
+                send_message(p.chat_id, "Hi {0}, welcome back in LingoGameBot!\n\n*By using this bot you agree that your data is recorded and processed within a scientific experiment.*".format(name))
                 p.setEnabled(True, put=False)
                 restart(p)
             elif WORK_IN_PROGRESS and p.chat_id != key.FEDE_CHAT_ID:

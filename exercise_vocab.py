@@ -43,7 +43,7 @@ def is_user_registered(userid):
     return len(response_json)>0
 
 # Choose the exercise type that should be presented to the user.
-def choose_exercise(userid, elevel='A1', etype='RelatedTo'):
+def choose_exercise(userid, elevel='C1', etype='RelatedTo'):
     payload = {
         'method': 'choose_exercise',
         'userid': userid
@@ -54,7 +54,7 @@ def choose_exercise(userid, elevel='A1', etype='RelatedTo'):
 
 #level = 'A1','A2',...
 #etype = 'RelatedTo', 'AtLocation', 'PartOf'
-def get_exercise(userid, elevel='A1', etype='RelatedTo'):
+def get_exercise(userid, elevel='C1', etype='RelatedTo'):
     payload = {
         'method': 'get_exercise',
         'userid': userid,
@@ -75,7 +75,7 @@ def get_exercise(userid, elevel='A1', etype='RelatedTo'):
 
 #level = 'A1','A2',...
 #etype = 'RelatedTo', 'AtLocation', 'PartOf'
-def get_close_exercise(userid, elevel='A1', etype='RelatedTo'):
+def get_close_exercise(userid, elevel='C1', etype='RelatedTo'):
     payload = {
         'method': 'get_close_exercise',
         'userid': userid,
@@ -124,7 +124,7 @@ def store_close_response(eid, userid, response):
     # "eid": int,
     # "userid": string,
     # "response": string,
-    # "points": int/null (null means pending evaluation),
+    # "points": 0/1 (incorrect/correct answer),
 
 def get_random_response(eid, userid):
     payload = {
