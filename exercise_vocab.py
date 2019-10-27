@@ -13,7 +13,7 @@ def reset_db():
         'apikey': key.NVT_API_KEY,
     }    
     r = requests.get(API_URL, params=payload)
-    logging.debug('add_user method. payload={} response={}'.format(payload, r.text))
+    logging.debug('reset_db method. payload={} response={}'.format(payload, r.text))
     return r.json()
 
 def add_user(userid, uname):
@@ -33,7 +33,7 @@ def get_user_info(userid):
         'userid': userid,
     }    
     r = requests.get(API_URL, params=payload)
-    logging.debug('add_user method. payload={} response={}'.format(payload, r.text))
+    logging.debug('get_user_info method. payload={} response={}'.format(payload, r.text))
     return r.json()
     # "userid": string,
     # "uname": string
@@ -119,7 +119,7 @@ def store_close_response(eid, userid, response):
         'response': response
     }    
     r = requests.get(API_URL, params=payload)
-    logging.debug('store_response method. payload={} response={}'.format(payload, r.text))
+    logging.debug('store_close_response method. payload={} response={}'.format(payload, r.text))
     return r.json()
     # "eid": int,
     # "userid": string,
