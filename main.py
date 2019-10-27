@@ -570,8 +570,10 @@ def goToState4(p, **kwargs):
             send_message(p.chat_id, "Not a valid input.")        
         elif input_text == BUTTON_EXIT:
             restart(p)
-        elif input_text in [BUTTON_YES,BUTTON_NO,BUTTON_DONT_KNOW]:
-            response = 1 if input_text==BUTTON_YES else -1 if input_text==BUTTON_NO else 0
+        elif input_text.upper() in [BUTTON_YES, 'YES', 'Y', BUTTON_NO, 'NO', 'N', BUTTON_DONT_KNOW]:
+            response = 1 if input_text.upper() in [BUTTON_YES, 'YES', 'Y'] \
+                else -1 if input_text.upper() in [BUTTON_NO, 'NO', 'N'] \
+                else 0
             evalutaion_json = exercise_vocab.store_close_response(eid, player_id, response)
             if response==0:
                 correct_response = BUTTON_YES if evalutaion_json['correct_response'] == 1 else BUTTON_NO
@@ -584,7 +586,7 @@ def goToState4(p, **kwargs):
             # repeatState(p)
             redirect_to_exercise_type(p)
         else:
-            send_message(p.chat_id, "Not a valid input, please press one of the buttons below.")        
+            send_message(p.chat_id, "Not a valid input, please press one of the buttons below (or type Y/YES N/NO).")        
 
 
 # ================================
