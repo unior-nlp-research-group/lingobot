@@ -16,16 +16,32 @@ def reset_db():
     logging.debug('reset_db method. payload={} response={}'.format(payload, r.text))
     return r.json()
 
-def add_user(userid, uname):
+def add_user(userid, uname, language_interface='eng', langauge_exercise='eng'):
     payload = {
         'method': 'add_user',
         'userid': userid,
         'uname': uname,
+        'language_interface': language_interface,
+        'langauge_exercise': langauge_exercise
     }    
     r = requests.get(API_URL, params=payload)
     logging.debug('add_user method. payload={} response={}'.format(payload, r.text))
     return r.json()
     #"success": boolean
+
+def update_user(userid, uname, language_interface, langauge_exercise='eng'):
+    payload = {
+        'method': 'update_user',
+        'userid': userid,
+        'uname': uname,
+        'language_interface': language_interface,
+        'langauge_exercise': langauge_exercise
+    }    
+    r = requests.get(API_URL, params=payload)
+    logging.debug('add_user method. payload={} response={}'.format(payload, r.text))
+    return r.json()
+    #"success": boolean
+
 
 def get_user_info(userid):
     payload = {

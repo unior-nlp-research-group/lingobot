@@ -39,6 +39,8 @@ STATES = {
     2:   'Intruder Game',
 }
 
+INFO_TEXT = "CrowdFest - V-Trel 2.0"
+
 CANCEL = '❌'
 CHECK = '✅'
 LEFT_ARROW = '⬅️'
@@ -56,7 +58,7 @@ BUTTON_SYNONYM_GAME = "🖇 SYNONYM GAME"
 BUTTON_INTRUDER_GAME = "🐸 INTRUDER GAME"
 BUTTON_ACCEPT = CHECK + " ACCEPT"
 BUTTON_CONFIRM = CHECK + " CONFIRM"
-BUTTON_ABORT = CANCEL + " ABORT"
+BUTTON_CANCEL = CANCEL + " CANCEL"
 BUTTON_POINTS = "💰 MY POINTS"
 BUTTON_LEADERBOARD = "🏆 LEADERBOARD"
 BUTTON_NOTIFICATIONS = "🌟"
@@ -66,6 +68,50 @@ BUTTON_DONT_KNOW = "🤔 DON'T KNOW"
 BUTTON_NO_INTRUDER = "NO INTRUDER"
 
 BUTTON_INFO = "ℹ INFO"
+BUTTON_CHANGE_LANGUAGE = '🌍 CHANGE LANGAUGE'
+
+LANGUAGES = {
+    'eng': {
+        'flag': '🏴󠁧󠁢󠁥󠁮󠁧󠁿',
+        'lang': 'ENGLISH'
+    },
+    'fin': {
+        'flag': '🇫🇮',
+        'lang': 'FINNISH'
+    },
+    'fra': {
+        'flag': '🇫🇷',
+        'lang': 'FRENCH'
+    },
+    'deu': {
+        'flag': '🇩🇪',
+        'lang': 'GERMAN'
+    },
+    'ell': {
+        'flag': '🇬🇷',
+        'lang': 'GREEK'
+    }, 
+    'ita': {
+        'flag': '🇮🇹',
+        'lang': 'ITALIAN'
+    }, 
+    'por': {
+        'flag': '🇵🇹',
+        'lang': 'PORTUGUESE'
+    }, 
+    'ron': {
+        'flag': '🇷🇴',
+        'lang': 'RUMANIAN'    
+    }, 
+    'rus': {
+        'flag': '🇷🇺',
+        'lang': 'RUSSIAN'
+    }, 
+    'hbs': {
+        'flag': '🇧🇦🇭🇷🇲🇪🇷🇸',
+        'lang': 'SERBO-CROATIAN'
+    }, 
+}
 
 # ================================
 # ================================
@@ -289,7 +335,7 @@ def goToState0(p, **kwargs):
         [BUTTON_VOCAB_GAME],
         #[BUTTON_SYNONYM_GAME,BUTTON_INTRUDER_GAME],
         [BUTTON_POINTS, BUTTON_LEADERBOARD],
-        [BUTTON_INFO]
+        [BUTTON_CHANGE_LANGUAGE, BUTTON_INFO]
     ]
     
     # update notifications
@@ -299,7 +345,10 @@ def goToState0(p, **kwargs):
         BUTTON_NUM_NOTIFICATIONS = '{} ({})'.format(BUTTON_NOTIFICATIONS, new_notifications_number)
         kb[1].insert(1, BUTTON_NUM_NOTIFICATIONS)
     if giveInstruction:
-        reply_txt = "Let's play some language game!"
+        lang = p.language_exercise if p.language_exercise else 'eng'
+        lang_info = LANGUAGES[lang]
+        flag_lang = '{} {}'.format(lang_info['flag'],lang_info['lang'])
+        reply_txt = "Let's play some language game for {}!".format(flag_lang)
         send_message(p.chat_id, reply_txt, kb)
     else:
         if input_text == '':
@@ -370,18 +419,55 @@ def goToState0(p, **kwargs):
             import render_leaderboard
             imgData = render_leaderboard.getResultImage(board_rows,alignment)
             sendPhotoData(p.chat_id, imgData, 'leaderboard.png')
-        elif input_text == BUTTON_INFO:
+        elif input_text == BUTTON_INFO:            
             msg = (
                 "Vocabulary trainer on word relations for vocabulary of level C1."
                 "\nRelated-to words can be single words or multiword expressions of any word class."
                 "\n\nYour telegram id: {}"
             ).format(p.chat_id)
             send_message(p.chat_id, msg, kb)
+        elif input_text == BUTTON_CHANGE_LANGUAGE:
+            redirectToState(p, 9)
         elif p.chat_id in key.AMMINISTRATORI_ID:
             dealWithAdminCommands(p, input_text)
         else:
             send_message(p.chat_id, FROWNING_FACE + " Sorry, I don't understand what you have input")
-            
+
+
+# ================================
+# GO TO STATE 9: Change Language
+# ================================
+
+def goToState9(p, **kwargs):
+    input_text = kwargs['input_text'] if 'input_text' in kwargs.keys() else None
+    giveInstruction = input_text is None
+    language_list = [
+        '{} {}'.format(v['flag'],v['lang'])
+        for k,v in sorted(LANGUAGES.items(), key=lambda x:x[1]['lang'])
+        if k != p.language_exercise
+    ]
+    kb = [[b] for b in language_list]
+    kb.insert(0,[BUTTON_CANCEL])
+    kb.append([BUTTON_CANCEL])
+    
+    if giveInstruction:
+        lang = p.language_exercise if p.language_exercise else 'eng'
+        lang_info = LANGUAGES[lang]
+        flag_lang = '{} {}'.format(lang_info['flag'],lang_info['lang'])
+        reply_txt = "Your are learning {}.\nPlease select a new language you want to learn.".format(flag_lang)
+        send_message(p.chat_id, reply_txt, kb)
+    else:
+        if input_text == '':
+            send_message(p.chat_id, "Not a valid input.")
+        elif input_text in language_list:
+            lang = next(k for k,v in LANGUAGES.items() if input_text == '{} {}'.format(v['flag'],v['lang']))
+            p.set_language_exercise(lang)
+            exercise_vocab.update_user(p.player_id(), p.name, language_interface=lang)
+            redirectToState(p, 0)
+        elif input_text == BUTTON_CANCEL:
+            redirectToState(p, 0)
+        else:
+            send_message(p.chat_id, FROWNING_FACE + " Sorry, I don't understand what you have input")
 
 
 def redirect_to_exercise_type(p):
@@ -829,7 +915,7 @@ class WebhookHandler(webapp2.RequestHandler):
                       "If you encounter any problem, please contact @kercos")
         else:
             # known user
-            p.updateUsername(username)            
+            p.updateUser(username)            
             if text == '/state':
                 if p.state in STATES:
                     reply("You are in state " + str(p.state) + ": " + STATES[p.state])

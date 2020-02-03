@@ -3,7 +3,7 @@
 from google.appengine.ext import ndb
 import logging
 import key
-
+import parameters
 
 class Person(ndb.Model):
     chat_id = ndb.IntegerProperty()
@@ -17,6 +17,8 @@ class Person(ndb.Model):
     lastExerciseId = ndb.IntegerProperty()
     lastExerciseOptions = ndb.StringProperty(repeated=True)
     variables = ndb.JsonProperty(indexed=False)
+    language_interface = ndb.StringProperty(default=parameters.default_language_interface)
+    language_exercise = ndb.StringProperty(default=parameters.default_language_exercise)
 
     def player_id(self):
         return 'telegram_{}'.format(self.chat_id)
@@ -44,11 +46,17 @@ class Person(ndb.Model):
         if put:
             self.put()
 
-    def updateUsername(self, username, put=False):
-        if (self.username!=username):
+    def updateUser(self, username, put=False):
+        if self.username!=username:
             self.username = username
             if put:
                 self.put()
+
+    def set_language_interface(self, lang):
+        self.language_interface = lang
+
+    def set_language_exercise(self, lang):
+        self.language_exercise = lang
 
     def setState(self, newstate, put=True):
         self.last_state = self.state

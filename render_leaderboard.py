@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import utility
 import StringIO
 from PIL import ImageFont
 from PIL import Image
@@ -22,7 +23,7 @@ def getResultImage(result_table, alignment, show=False):
     draw = ImageDraw.Draw(img)
     for i, row in enumerate(result_table):
         for j, text in enumerate(row):
-            text = text.decode('utf-8')
+            text = utility.safe_decode_utf(text)
             TEXT_WIDTH = FONT.getsize(text)[0]
             aligne = alignment[j]
             if aligne=='l':                

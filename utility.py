@@ -116,6 +116,12 @@ def dateString(datetime=now()):
 def unindent(s):
     return re.sub('[ ]+', ' ', textwrap.dedent(s))
 
+def safe_decode_utf(s):
+    try:
+        return s.decode('utf-8')
+    except UnicodeEncodeError:
+        return s
+        
 
 def makeCallbackQueryButton(text):
     return {
