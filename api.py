@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import requests
 import logging
 import json
@@ -29,13 +27,13 @@ def add_user(userid, uname, language_interface='eng', langauge_exercise='eng'):
     return r.json()
     #"success": boolean
 
-def update_user(userid, uname, language_interface, langauge_exercise='eng'):
+def update_user(userid, uname, language_exercise='en', language_interface='en'):
     payload = {
         'method': 'update_user',
         'userid': userid,
         'uname': uname,
-        'language_interface': language_interface,
-        'langauge_exercise': langauge_exercise
+        'language_exercise': language_exercise,
+        'language_interface': language_interface
     }    
     r = requests.get(API_URL, params=payload)
     logging.debug('add_user method. payload={} response={}'.format(payload, r.text))
@@ -59,7 +57,7 @@ def is_user_registered(userid):
     return len(response_json)>0
 
 # Choose the exercise type that should be presented to the user.
-def choose_exercise(userid, elevel='C1', etype='RelatedTo'):
+def choose_exercise(userid, elevel=None, etype='RelatedTo'):
     payload = {
         'method': 'choose_exercise',
         'userid': userid
@@ -70,7 +68,8 @@ def choose_exercise(userid, elevel='C1', etype='RelatedTo'):
 
 #level = 'A1','A2',...
 #etype = 'RelatedTo', 'AtLocation', 'PartOf'
-def get_exercise(userid, elevel='C1', etype='RelatedTo'):
+def get_exercise(userid, elevel=None, etype=None):
+    import bot_telegram
     payload = {
         'method': 'get_exercise',
         'userid': userid,
@@ -79,7 +78,10 @@ def get_exercise(userid, elevel='C1', etype='RelatedTo'):
     }    
     r = requests.get(API_URL, params=payload)
     logging.debug('get_exercise method. payload={} response={}'.format(payload, r.text))
-    return r.json()
+    try:
+        return r.json()
+    except json.decoder.JSONDecodeError:
+        bot_telegram.report_master("JSON error in get_exercise:\n{}".format(r.content))
     # "eid": int,
     # "userid": string,
     # "exercise": string,
@@ -91,7 +93,7 @@ def get_exercise(userid, elevel='C1', etype='RelatedTo'):
 
 #level = 'A1','A2',...
 #etype = 'RelatedTo', 'AtLocation', 'PartOf'
-def get_close_exercise(userid, elevel='C1', etype='RelatedTo'):
+def get_close_exercise(userid, elevel=None, etype='RelatedTo'):
     payload = {
         'method': 'get_close_exercise',
         'userid': userid,
@@ -111,6 +113,14 @@ def get_close_exercise(userid, elevel='C1', etype='RelatedTo'):
     # "eid_originated": 7, 
     # "exercise": "Is it true that sheep is related to herd?", 
     # "subject": "sheep"
+
+def get_exercise_languages():    
+    payload = {
+        'method': 'get_exercise_languages',
+    }    
+    r = requests.get(API_URL, params=payload)
+    logging.debug('get_supported_languages method. payload={} response={}'.format(payload, r.text))
+    return r.json()
 
 def store_response(eid, userid, response):
     payload = {

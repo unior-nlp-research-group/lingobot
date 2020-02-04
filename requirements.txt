@@ -1,4 +1,13 @@
-requests
 pylint
-Pillow
+Flask
+google-cloud-ndb
+google-cloud-logging
+google-cloud-datastore
+requests
 python-telegram-bot
+decorator
+grpcio
+gunicorn
+Pillow
+geopy
+python-dotenv

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import re
 import logging
 
@@ -12,7 +11,7 @@ def representsInt(s):
     except ValueError:
         return False
 
-re_digits = re.compile('^\d+$')
+re_digits = re.compile(r'^\d+$')
 
 def hasOnlyDigits(s):
     return re_digits.match(s) != None
@@ -86,7 +85,7 @@ def segmentArrayOnMaxChars(array, maxChar=20, ignoreString=None):
         result.append(currentLine)
     return result
 
-reSplitSpace = re.compile("\s")
+reSplitSpace = re.compile(r"\s")
 
 def splitTextOnSpaces(text):
     return reSplitSpace.split(text)
@@ -142,3 +141,35 @@ if __name__ == "__main__":
         """
     )
     print(test_unindent)
+
+def flatten(L):
+    ret = []
+    for i in L:
+        if isinstance(i,list):
+            ret.extend(flatten(i))
+        else:
+            ret.append(i)
+    return ret
+
+def clean_new_lines(s):
+    return s.replace('\\n', '\n').strip()
+
+def import_url_csv_to_dict_list(url_csv, remove_new_line_escape=True): #escapeMarkdown=True
+    import csv
+    import requests
+    r = requests.get(url_csv)
+    r.encoding = "utf-8"
+    spreadsheet_csv = r.text.split('\n')
+    reader = csv.DictReader(spreadsheet_csv)
+    if remove_new_line_escape:
+        return [
+            {
+                clean_new_lines(k): clean_new_lines(v)
+                for k,v in dict.items()
+            } for dict in reader
+        ]
+    return [dict for dict in reader]
+
+def get_google_spreadsheet_dict_list(spreadsheed_id, gid):
+    url = 'https://docs.google.com/spreadsheets/d/{}/export?gid={}&format=csv'.format(spreadsheed_id, gid)
+    return import_url_csv_to_dict_list(url)

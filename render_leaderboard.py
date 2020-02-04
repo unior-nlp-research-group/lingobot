@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 import utility
-import StringIO
+from io import StringIO
 from PIL import ImageFont
 from PIL import Image
 from PIL import ImageDraw
@@ -35,7 +34,7 @@ def getResultImage(result_table, alignment, show=False):
                 x = sum(COLUMNS_WIDTH[:j]) - TEXT_WIDTH
             y = ROW_HEIGHT*(i+1) + MARGIN - TEXT_HEIGHT
             draw.text((x, y), text, (0, 0, 0), font=FONT)
-    imgData = StringIO.StringIO()
+    imgData = StringIO()
     img.save(imgData, format="PNG")
     if show:
         img.show()

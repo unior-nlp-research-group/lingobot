@@ -1,9 +1,7 @@
-# -*- coding: utf-8 -*-
-
 import requests
 import logging
 import json
-import exercise_vocab
+import api
 
 API_URL = "http://cognition-srv1.ouc.ac.cy/nvt/webservice/api.php"
 
@@ -37,95 +35,95 @@ def random_string_generator(size):
     return ''.join(random.choice(string.ascii_lowercase) for _ in range(size))
 
 def test_random_answers():
-    exercise_vocab.add_user(USER1_UID, USER1_NAME)
+    api.add_user(USER1_UID, USER1_NAME)
     new_answer = random_string_generator(15)
-    json_response = exercise_vocab.store_response(EID_1, USER1_UID, new_answer)
+    json_response = api.store_response(EID_1, USER1_UID, new_answer)
     assert_equality(json_response["userid"], USER1_UID) 
     assert_equality(int(json_response["eid"]), EID_1) 
     assert_equality(json_response["response"], new_answer) 
     assert_equality(json_response["points"], None) 
 
 def test_valid_answer():
-    exercise_vocab.add_user(USER1_UID, USER1_NAME)
+    api.add_user(USER1_UID, USER1_NAME)
     valid_answer = EID_1_VALID_ANSWERS[0]
-    json_response = exercise_vocab.store_response(EID_1, USER1_UID, valid_answer)
+    json_response = api.store_response(EID_1, USER1_UID, valid_answer)
     assert json_response["points"] > 0, '{} <=0 {}'.format(json_response["points"], 0)
-    json_response = exercise_vocab.store_response(EID_1, USER1_UID, valid_answer)
+    json_response = api.store_response(EID_1, USER1_UID, valid_answer)
     assert_equality(json_response["points"], 0) 
 
 def test_notifications():
-    exercise_vocab.add_user(USER1_UID, USER1_NAME)
-    response_json = exercise_vocab.get_user_info(USER1_UID)
+    api.add_user(USER1_UID, USER1_NAME)
+    response_json = api.get_user_info(USER1_UID)
     print(json.dumps(response_json, indent=3))
-    exercise_vocab.add_user(USER2_UID, USER2_NAME)
-    response_json = exercise_vocab.get_user_info(USER2_UID)
+    api.add_user(USER2_UID, USER2_NAME)
+    response_json = api.get_user_info(USER2_UID)
     print(json.dumps(response_json, indent=3))
     new_agreed_answer = "new agreed answer"
     print("Agreed answer: {}\n".format(new_agreed_answer))
-    exercise_vocab.store_response(EID_1, USER1_UID, new_agreed_answer)
-    exercise_vocab.store_response(EID_1, USER2_UID, new_agreed_answer)
-    exercise_vocab.store_response(EID_1, USER1_UID, random_string_generator(15))
-    exercise_vocab.store_response(EID_1, USER1_UID, random_string_generator(15))
-    exercise_vocab.store_response(EID_1, USER1_UID, random_string_generator(15))    
-    exercise_vocab.store_response(EID_1, USER1_UID, random_string_generator(15))   
+    api.store_response(EID_1, USER1_UID, new_agreed_answer)
+    api.store_response(EID_1, USER2_UID, new_agreed_answer)
+    api.store_response(EID_1, USER1_UID, random_string_generator(15))
+    api.store_response(EID_1, USER1_UID, random_string_generator(15))
+    api.store_response(EID_1, USER1_UID, random_string_generator(15))    
+    api.store_response(EID_1, USER1_UID, random_string_generator(15))   
     # at least 6 
-    # json_response = exercise_vocab.get_notifications(USER1_UID)
+    # json_response = api.get_notifications(USER1_UID)
     # print("Notifications first call: {}\n".format(json.dumps(json_response, indent=4)))
-    # json_response = exercise_vocab.get_notifications(USER1_UID)
+    # json_response = api.get_notifications(USER1_UID)
     # print("Notifications second call: {}\n".format(json.dumps(json_response, indent=4)))
-    # json_response = exercise_vocab.get_notifications(USER1_UID)
+    # json_response = api.get_notifications(USER1_UID)
     # print("Notifications third call: {}\n".format(json.dumps(json_response, indent=4)))
 
 def test_user_info():
-    response_json = exercise_vocab.get_user_info('invalid_user')
+    response_json = api.get_user_info('invalid_user')
     print(json.dumps(response_json, indent=3))
     assert len(response_json)==0
-    response_json = exercise_vocab.add_user(USER1_UID, USER1_NAME)
+    response_json = api.add_user(USER1_UID, USER1_NAME)
     print("Add user response:\n{}".format(json.dumps(response_json, indent=3)))
-    response_json = exercise_vocab.get_user_info(USER1_UID)
+    response_json = api.get_user_info(USER1_UID)
     print(json.dumps(response_json, indent=3))
     assert len(response_json)>0
 
 def test_get_exercise():
-    exercise_vocab.add_user(USER1_UID, USER1_NAME)
-    exercise_json = exercise_vocab.get_exercise(USER1_UID) #elevel='A1', etype='LocatedAt'
+    api.add_user(USER1_UID, USER1_NAME)
+    exercise_json = api.get_exercise(USER1_UID) #elevel='A1', etype='LocatedAt'
     print("Exercise response:\n{}".format(json.dumps(exercise_json, indent=3)))
 
 def test_choose_exercise():
-    exercise_vocab.add_user(USER1_UID, USER1_NAME)
-    response_json = exercise_vocab.choose_exercise(USER1_UID)
+    api.add_user(USER1_UID, USER1_NAME)
+    response_json = api.choose_exercise(USER1_UID)
     print("Exercise response:\n{}".format(json.dumps(response_json, indent=3)))
 
 def test_get_close_exercise():
-    exercise_vocab.add_user(USER1_UID, USER1_NAME)
-    exercise_json = exercise_vocab.get_close_exercise(USER1_UID) #, elevel='A1', etype='RelatedTo' #RelatedTo, LocatedAt
+    api.add_user(USER1_UID, USER1_NAME)
+    exercise_json = api.get_close_exercise(USER1_UID) #, elevel='A1', etype='RelatedTo' #RelatedTo, LocatedAt
     print("Exercise response:\n{}".format(json.dumps(exercise_json, indent=3)))
-    store_response_json = exercise_vocab.store_close_response(exercise_json['eid'], USER1_UID, 2)
+    store_response_json = api.store_close_response(exercise_json['eid'], USER1_UID, 2)
     print("Exercise store response:\n{}".format(json.dumps(store_response_json, indent=3)))
 
 def test_get_close_exercise_multi(): 
     for i in range(1000):
         if i%10 == 0:
             print('\r{}'.format(i))
-        exercise_json = exercise_vocab.get_close_exercise(USER1_UID) #, elevel='A1', etype='RelatedTo' #RelatedTo, LocatedAt
+        exercise_json = api.get_close_exercise(USER1_UID) #, elevel='A1', etype='RelatedTo' #RelatedTo, LocatedAt
         assert(exercise_json is not None)
 
 def test_random_response():
-    exercise_vocab.add_user(USER1_UID, USER1_NAME)
-    exercise_json = exercise_vocab.get_exercise(USER1_UID)
+    api.add_user(USER1_UID, USER1_NAME)
+    exercise_json = api.get_exercise(USER1_UID)
     eid = exercise_json['eid']
     #exercise = exercise_json['exercise']
-    random_response_json = exercise_vocab.get_random_response(eid, USER1_UID)
+    random_response_json = api.get_random_response(eid, USER1_UID)
     print("Random response:\n{}".format(json.dumps(random_response_json, indent=3)))
 
 def test_leaderboard():
-    leaderboard_json = exercise_vocab.get_leaderboard()
+    leaderboard_json = api.get_leaderboard()
     print(json.dumps(leaderboard_json, indent=3))    
     
     
 
 if __name__ == "__main__": 
-    #exercise_vocab.reset_db()
+    #api.reset_db()
     
     #test_user_info()
     #test_random_answers()

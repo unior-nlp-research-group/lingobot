@@ -1,46 +1,5 @@
-#application: lingogamebot
-#version: 1
-runtime: python27
-api_version: 1
-threadsafe: true
+# app name: lingogamebot
+# url: https://lingogamebot.appspot.com
 
-#inbound_services:
-#- channel_presence
-
-instance_class: B1
-basic_scaling:
-  max_instances: 1
-  idle_timeout: 1m
-
-builtins:
-- remote_api: on
-- deferred: on
-
-handlers:
-- url: /set_webhook
-  login: admin
-  script: main.app
-
-- url: /_ah/queue/deferred
-  script: google.appengine.ext.deferred.deferred.application
-  login: admin
-
-- url: .*
-  script: main.app
-
-- url: /fonts
-  static_dir: fonts
-  application_readable: true
-
-libraries:
-- name: webapp2
-  version: latest
-- name: PIL
-  version: latest
-- name: jinja2
-  version: latest
-- name: ssl
-  version: latest
-
-
-
+entrypoint: gunicorn -b :$PORT main:app
+runtime: python37
