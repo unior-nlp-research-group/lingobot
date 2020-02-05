@@ -1,5 +1,7 @@
 import api
 
+default_level = 'C1'
+default_relation = 'RelatedTo'
 default_language_interface = 'EN'
 default_language_exercise = 'EN'
 
@@ -11,47 +13,47 @@ SUPPORTED_LANGUAGES = [x.upper() for x in api.get_exercise_languages()]
 LANGUAGES = {
     'EN': {
         'flag': '🏴󠁧󠁢󠁥󠁮󠁧󠁿',
-        'lang': 'ENGLISH'
+        'en_lang': 'ENGLISH'
     },
     'FI': {
         'flag': '🇫🇮',
-        'lang': 'FINNISH'
+        'en_lang': 'FINNISH'
     },
     'FR': {
         'flag': '🇫🇷',
-        'lang': 'FRENCH'
+        'en_lang': 'FRENCH'
     },
     'DE': {
         'flag': '🇩🇪',
-        'lang': 'GERMAN'
+        'en_lang': 'GERMAN'
     },
     'EL': {
         'flag': '🇬🇷',
-        'lang': 'GREEK'
+        'en_lang': 'GREEK'
     }, 
     'IT': {
         'flag': '🇮🇹',
-        'lang': 'ITALIAN'
+        'en_lang': 'ITALIAN'
     }, 
     'PT': {
         'flag': '🇵🇹',
-        'lang': 'PORTUGUESE'
+        'en_lang': 'PORTUGUESE'
     }, 
     'RO': {
         'flag': '🇷🇴',
-        'lang': 'ROMANIAN'    
+        'en_lang': 'ROMANIAN'    
     }, 
     'RU': {
         'flag': '🇷🇺',
-        'lang': 'RUSSIAN'
+        'en_lang': 'RUSSIAN'
     }, 
     'SH': {
         'flag': '🇧🇦🇭🇷🇲🇪🇷🇸',
-        'lang': 'SERBO-CROATIAN'
+        'en_lang': 'SERBO-CROATIAN'
     }, 
     'CS': {
         'flag': '🇨🇿',
-        'lang': 'CZECH'
+        'en_lang': 'CZECH'
     }, 
 }
 

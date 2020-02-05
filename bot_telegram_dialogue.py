@@ -76,9 +76,10 @@ def state_INITIAL(p, message_obj=None, **kwargs):
             #send_message(p, "New notification!!")
             p.ux().BUTTON_NUM_NOTIFICATIONS = '{} ({})'.format('🌟', new_notifications_number)
             kb[1].insert(1, p.ux().BUTTON_NUM_NOTIFICATIONS)
-        lang = p.language_exercise if p.language_exercise in LANGUAGES else 'en'
+        lang = p.language_exercise if p.language_exercise in LANGUAGES else params.default_language_exercise
         lang_info = LANGUAGES[lang]
-        flag_lang = '{} {}'.format(lang_info['flag'],lang_info['lang'])
+        localized_lang = lambda l: p.ux()['LANG_{}'.format(l)]
+        flag_lang = '{} {}'.format(lang_info['flag'],localized_lang(lang))
         send_message(p, p.ux().MSG_LETS_PLAY.format(flag_lang), kb)
     else: 
         text_input = message_obj.text
@@ -95,7 +96,7 @@ def state_INITIAL(p, message_obj=None, **kwargs):
                         r['exercise'],
                         r['response']) for r in notifications]  #r['exercise']
                     )
-                    msg = p.ux().MSG_NEW_NOTIFICATIONS.format(notifications_str)
+                    msg = p.ux().MSG_NEW_NOTIFICATIONS + '\n' + notifications_str
                     send_message(p, msg)
                     p.set_variable('notifications', [])
                     repeat_state(p)
@@ -107,19 +108,21 @@ def state_INITIAL(p, message_obj=None, **kwargs):
                 earned_points = summary['earned_points']
                 potential_points = summary['potential_points']
                 badges = summary['badges']
-                msg = utility.unindent(
-                    '''
-                    💰 Earned Points: {}
-                    🤞 Potential Points: {}
-                    🏅 Badges: {}
-                    '''.format(earned_points, potential_points, badges)
-                )
+                msg_earned_points = p.ux().MSG_EARNED_POINTS.format(earned_points)
+                msg_potential_points = p.ux().MSG_POTENTIAL_POINTS.format(potential_points)
+                msg_badges = p.ux().MSG_BADGES.format(badges)
+                msg = '\n'.join([msg_earned_points, msg_potential_points, msg_badges])
                 send_message(p, msg, kb)
             elif text_input == p.ux().BUTTON_LEADERBOARD:
                 leaderboard = api.get_leaderboard()
                 leaderboard_sorted = sorted(leaderboard, key=lambda e: e["earned_points"], reverse=True)
                 leaderboard_sorted = leaderboard_sorted[:9]            
-                board_rows = [['RANK', 'NAME', 'POINTS', 'BADGES']] #potential_points
+                board_rows = [[
+                    p.ux().MSG_LEADERBOARD_RANK,
+                    p.ux().MSG_LEADERBOARD_NAME,
+                    p.ux().MSG_LEADERBOARD_POINTS,
+                    p.ux().MSG_LEADERBOARD_BADGES
+                ]] #potential_points
                 alignment = 'clcc'
                 for i in range(len(leaderboard_sorted)):
                     row = leaderboard_sorted[i]
@@ -130,12 +133,7 @@ def state_INITIAL(p, message_obj=None, **kwargs):
                 imgData = render_leaderboard.getResultImage(board_rows,alignment)
                 bot_telegram.send_photo_from_data(p.chat_id, 'leaderboard.png', imgData)
             elif text_input == p.ux().BUTTON_INFO:            
-                msg = (
-                    "Vocabulary trainer on word relations for vocabulary of level C1."
-                    "\nRelated-to words can be single words or multiword expressions of any word class."
-                    "\n\nYour telegram id: {}"
-                ).format(p.chat_id)
-                send_message(p, msg, kb)
+                send_message(p, p.ux().MSG_INFO, kb)
             elif text_input == p.ux().BUTTON_CHANGE_LANGUAGE:
                 redirect_to_state(p, state_CHANGE_LANGUAGE)
             else:
@@ -161,9 +159,10 @@ def redirect_to_exercise_type(p):
 
 def state_CHANGE_LANGUAGE(p, message_obj=None, **kwargs):    
     give_instruction = message_obj is None
+    localized_lang = lambda l: p.ux()['LANG_{}'.format(l)]
     language_list = [
-        '{} {}'.format(v['flag'],v['lang'])
-        for k,v in sorted(LANGUAGES.items(), key=lambda x:x[1]['lang'])
+        '{} {}'.format(v['flag'], localized_lang(k))
+        for k,v in sorted(LANGUAGES.items(), key=lambda x:localized_lang(x[0]))
         if k != p.language_exercise
     ]
     if give_instruction:
@@ -172,15 +171,20 @@ def state_CHANGE_LANGUAGE(p, message_obj=None, **kwargs):
         kb.append([p.ux().BUTTON_CANCEL])
         lang = p.language_exercise if p.language_exercise in LANGUAGES else 'en'
         lang_info = LANGUAGES[lang]
-        flag_lang = '{} {}'.format(lang_info['flag'],lang_info['lang'])
-        reply_txt = "Your are learning {}.\nPlease select a new language you want to learn.".format(flag_lang)
-        send_message(p, reply_txt, kb)
+        flag_lang = '{} {}'.format(lang_info['flag'],localized_lang(lang))
+        msg_learning = p.ux().MSG_YOU_ARE_LEARNING_X.format(flag_lang)
+        msg_select_language = p.ux().MSG_SELECT_NEW_LANGUAGE
+        msg = '\n'.join([msg_learning, msg_select_language])
+        send_message(p, msg, kb)
     else:
         text_input = message_obj.text
         kb = p.get_keyboard()
         if text_input in utility.flatten(kb):
             if text_input in language_list:
-                lang = next(k for k,v in LANGUAGES.items() if text_input == '{} {}'.format(v['flag'],v['lang']))
+                lang = next(
+                    k for k,v in LANGUAGES.items() 
+                    if text_input.startswith('{} '.format(v['flag']))
+                )
                 p.set_language_exercise(lang)
                 p.set_language_interface(lang)
                 api.update_user(p.user_telegram_id(), p.name, language_exercise=lang, language_interface=lang)
@@ -221,9 +225,10 @@ def state_OPEN_EXERCISE(p, message_obj=None, **kwargs):
         previous_responses = response["previous_responses"]
         msg = exercise
         if previous_responses:
-            msg += '\n(you previously inserted: {})'.format(', '.join('*{}*'.format(pr) for pr in  previous_responses))
+            msg += '\n' + p.ux().MSG_YOU_PREVIOUSLY_INSERTED.format(
+                ', '.join('*{}*'.format(pr) for pr in  previous_responses))
         if wiki_url:
-            msg += '\n\nFor some inspiration check out\n{}'.format(wiki_url)
+            msg += '\n\n' + p.ux().MSG_INSPIRATION_CHECK_OUT + '\n' + wiki_url
         p.set_variable('eid',r_eid)
         p.set_variable('exercise',exercise)   
         p.set_variable('subject',subject)        
@@ -240,7 +245,7 @@ def state_OPEN_EXERCISE(p, message_obj=None, **kwargs):
                 restart(p)
             elif text_input == p.ux().BUTTON_DONT_KNOW:
                 response_json = api.get_random_response(eid, user_telegram_id)
-                msg = "No worries, a possible response would have been *{}*.".format(response_json['response'])
+                msg = p.ux().MSG_POSSIBLE_SOLUTION.format(response_json['response'])
                 send_message(p, msg, sleepDelay=True, remove_keyboard=True)            
                 send_typing_action(p, sleep_time=1)
                 exercise = p.get_variable('exercise')
@@ -255,7 +260,7 @@ def state_OPEN_EXERCISE(p, message_obj=None, **kwargs):
                         r['exercise'],
                         r['response']) for r in notifications]  #r['exercise']
                     )
-                    msg = "New potential points converted to real points:\n{}".format(notifications_str)
+                    msg = p.ux().MSG_NEW_NOTIFICATIONS + '\n' + notifications_str
                     send_message(p, msg, kb)
                     p.set_variable('notifications', [])
                     repeat_state(p)                
@@ -269,7 +274,7 @@ def state_OPEN_EXERCISE(p, message_obj=None, **kwargs):
         else:                
             subject = p.get_variable('subject') 
             if text_input == subject:
-                msg = "❌ You have inserted the same word of the exercise (*{}*)".format(subject)
+                msg = p.ux().MSG_SAME_WORD.format(subject)
                 send_message(p, msg, sleepDelay=True, remove_keyboard=True)            
                 send_typing_action(p, sleep_time=1)
                 exercise = p.get_variable('exercise')
@@ -279,35 +284,29 @@ def state_OPEN_EXERCISE(p, message_obj=None, **kwargs):
             # send_message(key.FEDE_CHAT_ID, 'DEBUG:\n{}'.format(json.dumps(response)), markdown=False)
             logging.debug("Response from store_response eid={}, user_telegram_id={}, text_input={}: {}".format(eid, user_telegram_id, text_input, response))            
             if 'points' in response:
-                r_points = response['points']
-                points_str = '*{} points*'.format(r_points) if r_points and r_points>1 else '*1 point*'
-                if r_points is None:
-                    msg = utility.unindent(
-                        '''
-                        You have inserted *{}*. Thanks for your answer!\n 
-                        🤞 This is a potential double point you can earn in the future if enough people confirm it!
-                        '''.format(text_input)
-                    )                
+                r_points = response['points']                
+                points_str = '*{} {}*'.format(r_points, p.ux().MSG_POINT_PLURAL) \
+                    if r_points and r_points>1 \
+                    else '*1 {}*'.format(p.ux().MSG_POINT_SINGULAR)
+                msg_inserted = p.ux().MSG_YOU_HAVE_INSERTED_X.format(text_input)
+                if r_points is None:                    
+                    msg_thanks = p.ux().MSG_THANKS_FOR_YOUR_ANSWER
+                    msg_double_point = p.ux().MSG_DOUBLE_POINT
+                    msg = msg_inserted + ' ' + msg_thanks + '\n' + msg_double_point
                 elif r_points>0:
-                    msg = utility.unindent(
-                        '''
-                        You have inserted *{}*.\n
-                        👍 Good job! You earned {}
-                        '''.format(text_input, points_str)
-                    )
+                    msg_good_job = p.ux().MSG_GOOD_JOB_POINT.format(points_str)
+                    msg = msg_inserted + '\n' + msg_good_job
                 elif r_points == 0:
-                    msg = utility.unindent(
-                        '''
-                        You have inserted *{}*.\n 
-                        🙄 You get 0 points:  you have already entered this answer!
-                        '''.format(text_input)
-                    )                
+                    msg_no_points = p.ux().MSG_NO_POINTS
+                    msg = msg_inserted + '\n' + msg_no_points
                 send_message(p, msg)
             else:
                 # debugging
-                error_msg = response['error']
-                msg = 'Backend found an error: {}.\nPlease report this to @kercos'.format(error_msg)
-                send_message(p, msg)
+                error_msg = response['error']                
+                msg = '⚠️ Backend found an error with user {}:\n{}.'.format(
+                    p.get_name_last_name_username(), error_msg)
+                send_message(key.FEDE_CHAT_ID, msg)
+                send_message(p, p.ux().MSG_AN_ERROR_HAS_OCCURED)
             send_typing_action(p, sleep_time=1)    
             redirect_to_exercise_type(p)            
 
@@ -346,11 +345,11 @@ def state_CLOSE_EXERCISE(p, message_obj=None, **kwargs):
             return
         r_eid = response['eid']
         exercise = response['exercise'] # "exercise": "Is it true that sheep is related to herd?",
-        exercise = re.sub(
-            r"Is it true that (.+) is related to (.+)\?", 
-            r"Is it true that *\1* is related to *\2*?", 
-            exercise
-        )
+        # exercise = re.sub(
+        #     r"Is it true that (.+) is related to (.+)\?", 
+        #     r"Is it true that *\1* is related to *\2*?", 
+        #     exercise
+        # )
         # subject = response['subject']
         # if subject in exercise:
         #     exercise = exercise[:exercise.rfind(subject)] + '*{}*'.format(subject)
@@ -360,7 +359,6 @@ def state_CLOSE_EXERCISE(p, message_obj=None, **kwargs):
         kb = [[p.ux().BUTTON_YES, p.ux().BUTTON_NO], [p.ux().BUTTON_DONT_KNOW], [p.ux().BUTTON_EXIT]]
         send_message(p, msg, kb)  
     else:
-        pass
         text_input = message_obj.text
         kb = p.get_keyboard()
         eid = p.get_variable('eid')
@@ -368,16 +366,18 @@ def state_CLOSE_EXERCISE(p, message_obj=None, **kwargs):
             if text_input == p.ux().BUTTON_EXIT:
                 restart(p)
             elif text_input.upper() in [p.ux().BUTTON_YES, 'YES', 'Y', p.ux().BUTTON_NO, 'NO', 'N', p.ux().BUTTON_DONT_KNOW]:
-                response = 1 if text_input.upper() in [p.ux().BUTTON_YES, 'YES', 'Y'] \
-                    else -1 if text_input.upper() in [p.ux().BUTTON_NO, 'NO', 'N'] \
+                msg_yes = p.ux().MSG_YES
+                msg_no = p.ux().MSG_NO
+                response = 1 if text_input.upper() in [p.ux().BUTTON_YES, msg_yes, msg_yes[0]] \
+                    else -1 if text_input.upper() in [p.ux().BUTTON_NO, msg_no, msg_no[0]] \
                     else 0
                 evalutaion_json = api.store_close_response(eid, user_telegram_id, response)
                 if response==0:
                     correct_response = p.ux().BUTTON_YES if evalutaion_json['correct_response'] == 1 else p.ux().BUTTON_NO
-                    msg = "💪 Don’t worry, the correct response was {}.".format(correct_response)    
+                    msg = p.ux().MSG_DONT_WORRY_CORRECT_RESPONSE.format(correct_response)    
                 else:
                     correct = evalutaion_json['points']==1            
-                    msg = "👍 Correct!" if correct else "👎 Wrong (according to the information we currently have)."
+                    msg = p.ux().MSG_CORRECT if correct else p.ux().MSG_WRONG
                 send_message(p, msg, sleepDelay=True, remove_keyboard=True)            
                 send_typing_action(p, sleep_time=1)
                 # repeat_state(p)

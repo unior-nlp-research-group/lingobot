@@ -17,6 +17,17 @@ def reload_ux():
 
 reload_ux()
 
+def check_consistencies():
+    for k,d in LANG_DICT.items():
+        num_inputs = d['EN'].count('{}')
+        end_char = d['EN'][-1]
+        wrong_lang_inputs = [l for l,s in d.items() if s!='' and s.count('{}')!=num_inputs]
+        wrong_lang_ending = [l for l,s in d.items() if s!='' and s[-1]!=end_char]
+        if wrong_lang_inputs:
+            print('Inconsistent inputs for {}: {}'.format(k, wrong_lang_inputs))
+        if wrong_lang_ending:
+            print('Inconsistent ending for {}: {}'.format(k, wrong_lang_ending))
+
 class UX_LANG:
     
     def __init__(self, lang):
@@ -28,9 +39,11 @@ class UX_LANG:
         var_mapping_lang = var_mapping[self.lang]
         if var_mapping_lang:
             return var_mapping_lang
-        # lang_name = LANGUAGES[self.lang]['lang']
-        # return '{} translation for "{}"'.format(lang_name, var_mapping['EN'])
         return var_mapping['EN']
+
+    def __getitem__(self, attr):
+        return self.__getattr__(attr)
+
 
 
 
