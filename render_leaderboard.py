@@ -1,5 +1,5 @@
 import utility
-from io import StringIO
+import io
 from PIL import ImageFont
 from PIL import Image
 from PIL import ImageDraw
@@ -12,7 +12,7 @@ MARGIN = 15
 ROW_HEIGHT = 30
 TEXT_HEIGHT = FONT.getsize('M')[1]
 
-def getResultImage(result_table, alignment, show=False):
+def get_image_data_from_table(result_table, alignment, show=False):
     NUMBER_ROWS = len(result_table)
     #NUMBER_COLUMNS = len(result_table[0])    
     COLUMNS_WIDTH = [ 2*MARGIN+max(FONT.getsize(row[j])[0] for row in result_table) for j in range(len(result_table[0]))]
@@ -22,7 +22,7 @@ def getResultImage(result_table, alignment, show=False):
     draw = ImageDraw.Draw(img)
     for i, row in enumerate(result_table):
         for j, text in enumerate(row):
-            text = utility.safe_decode_utf(text)
+            text = text
             TEXT_WIDTH = FONT.getsize(text)[0]
             aligne = alignment[j]
             if aligne=='l':                
@@ -34,11 +34,12 @@ def getResultImage(result_table, alignment, show=False):
                 x = sum(COLUMNS_WIDTH[:j]) - TEXT_WIDTH
             y = ROW_HEIGHT*(i+1) + MARGIN - TEXT_HEIGHT
             draw.text((x, y), text, (0, 0, 0), font=FONT)
-    imgData = StringIO()
-    img.save(imgData, format="PNG")
+    with io.BytesIO() as imgData:
+        img.save(imgData, format="PNG")
+        contents = imgData.getvalue()
     if show:
         img.show()
-    return imgData.getvalue()
+    return contents
 
 def test():
     result_table = [
@@ -49,7 +50,7 @@ def test():
     ]
     alignment = 'clcc'
 
-    getResultImage(result_table, alignment, show=True)
+    get_image_data_from_table(result_table, alignment, show=True)
 
 if __name__ == "__main__": 
     test()

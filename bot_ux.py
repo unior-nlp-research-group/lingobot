@@ -35,7 +35,7 @@ class UX_LANG:
 
     def __getattr__(self, attr):
         from params import LANGUAGES
-        var_mapping = LANG_DICT.get(attr, {self.lang: '⚠️ MISSING {} IN TRANSLATION TABLE'.format(attr)})
+        var_mapping = LANG_DICT.get(attr, {self.lang: '⚠️ {}'.format(attr)})
         var_mapping_lang = var_mapping[self.lang]
         if var_mapping_lang:
             return var_mapping_lang

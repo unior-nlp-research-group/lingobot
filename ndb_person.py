@@ -16,12 +16,15 @@ class Person(ndb.Model):
     variables = ndb.JsonProperty(indexed=False)
     language_interface = ndb.StringProperty(default=params.default_language_interface)
     language_exercise = ndb.StringProperty(default=params.default_language_exercise)
+    ux_lang = None # see method ux()
 
     def user_telegram_id(self):
         return 'telegram_{}'.format(self.chat_id)
 
     def ux(self):
-        return bot_ux.UX_LANG(self.language_interface)
+        if self.ux_lang is None:
+            self.ux_lang = bot_ux.UX_LANG(self.language_interface)
+        return self.ux_lang
 
     def get_name(self):
         return self.name
@@ -67,6 +70,7 @@ class Person(ndb.Model):
 
     def set_language_interface(self, lang):
         self.language_interface = lang
+        self.ux_lang = bot_ux.UX_LANG(lang)
 
     def set_language_exercise(self, lang):
         self.language_exercise = lang

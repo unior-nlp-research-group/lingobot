@@ -54,8 +54,8 @@ def repeat_state(user, message_obj=None):
         return
     method = possibles.get(state, None)
     if not method:
-        msg = "⚠️ User {} sent to unknown method state: {}".format(user.get_name_last_name_username(), state)
-        report_master(msg)
+        logging.debug("⚠️ User {} sent to unknown method state: {}".format(user.get_name_last_name_username(), state))
+        send_message(user, user.ux().MSG_INTERFACE_CHANGED, sleep=2)
         restart(user)
     else:
         method(user, message_obj)
@@ -64,28 +64,32 @@ def repeat_state(user, message_obj=None):
 # Initial State
 # ================================
 
-def state_INITIAL(p, message_obj=None, **kwargs):    
+def state_INITIAL(p, message_obj=None, **kwargs):  
+    pux = p.ux()  
     if message_obj is None:
         kb = [
-            [p.ux().BUTTON_VOCAB_GAME],
-            [p.ux().BUTTON_POINTS, p.ux().BUTTON_LEADERBOARD],
-            [p.ux().BUTTON_CHANGE_LANGUAGE, p.ux().BUTTON_INFO]
+            [pux.BUTTON_VOCAB_GAME],
+            [pux.BUTTON_POINTS, pux.BUTTON_LEADERBOARD],
+            [pux.BUTTON_CHANGE_LANGUAGE, pux.BUTTON_INFO]
         ]
         new_notifications_number = api.update_notifications(p)
         if new_notifications_number>0:
             #send_message(p, "New notification!!")
-            p.ux().BUTTON_NUM_NOTIFICATIONS = '{} ({})'.format('🌟', new_notifications_number)
-            kb[1].insert(1, p.ux().BUTTON_NUM_NOTIFICATIONS)
+            pux.BUTTON_NUM_NOTIFICATIONS = '{} ({})'.format('🌟', new_notifications_number)
+            kb[1].insert(1, [pux.BUTTON_NUM_NOTIFICATIONS])
         lang = p.language_exercise if p.language_exercise in LANGUAGES else params.default_language_exercise
         lang_info = LANGUAGES[lang]
-        localized_lang = lambda l: p.ux()['LANG_{}'.format(l)]
+        localized_lang = lambda l: pux['LANG_{}'.format(l)]
         flag_lang = '{} {}'.format(lang_info['flag'],localized_lang(lang))
-        send_message(p, p.ux().MSG_LETS_PLAY.format(flag_lang), kb)
+        send_message(p, pux.MSG_LETS_PLAY.format(flag_lang), kb)
     else: 
-        text_input = message_obj.text
+        text_input = message_obj.text        
+        if text_input is None:
+            send_message(p, pux.MSG_NOT_VALID_INPUT)
+            return        
         kb = p.get_keyboard()
         if text_input in utility.flatten(kb):
-            if text_input == p.ux().BUTTON_VOCAB_GAME:
+            if text_input == pux.BUTTON_VOCAB_GAME:
                 redirect_to_exercise_type(p)            
             elif text_input.startswith('🌟'):
                 notifications = p.get_variable('notifications')
@@ -96,32 +100,32 @@ def state_INITIAL(p, message_obj=None, **kwargs):
                         r['exercise'],
                         r['response']) for r in notifications]  #r['exercise']
                     )
-                    msg = p.ux().MSG_NEW_NOTIFICATIONS + '\n' + notifications_str
+                    msg = pux.MSG_NEW_NOTIFICATIONS + '\n' + notifications_str
                     send_message(p, msg)
                     p.set_variable('notifications', [])
                     repeat_state(p)
                 else:
-                    send_message(p, p.ux().MSG_NO_NEW_POINTS)
-            elif text_input == p.ux().BUTTON_POINTS:
+                    send_message(p, pux.MSG_NO_NEW_NOTIFICATION)
+            elif text_input == pux.BUTTON_POINTS:
                 response = api.get_points(p.user_telegram_id())
                 summary = response['summary']
                 earned_points = summary['earned_points']
                 potential_points = summary['potential_points']
                 badges = summary['badges']
-                msg_earned_points = p.ux().MSG_EARNED_POINTS.format(earned_points)
-                msg_potential_points = p.ux().MSG_POTENTIAL_POINTS.format(potential_points)
-                msg_badges = p.ux().MSG_BADGES.format(badges)
+                msg_earned_points = pux.MSG_EARNED_POINTS.format(earned_points)
+                msg_potential_points = pux.MSG_POTENTIAL_POINTS.format(potential_points)
+                msg_badges = pux.MSG_BADGES.format(badges)
                 msg = '\n'.join([msg_earned_points, msg_potential_points, msg_badges])
                 send_message(p, msg, kb)
-            elif text_input == p.ux().BUTTON_LEADERBOARD:
+            elif text_input == pux.BUTTON_LEADERBOARD:
                 leaderboard = api.get_leaderboard()
                 leaderboard_sorted = sorted(leaderboard, key=lambda e: e["earned_points"], reverse=True)
                 leaderboard_sorted = leaderboard_sorted[:9]            
                 board_rows = [[
-                    p.ux().MSG_LEADERBOARD_RANK,
-                    p.ux().MSG_LEADERBOARD_NAME,
-                    p.ux().MSG_LEADERBOARD_POINTS,
-                    p.ux().MSG_LEADERBOARD_BADGES
+                    pux.MSG_LEADERBOARD_RANK,
+                    pux.MSG_LEADERBOARD_NAME,
+                    pux.MSG_LEADERBOARD_POINTS,
+                    pux.MSG_LEADERBOARD_BADGES
                 ]] #potential_points
                 alignment = 'clcc'
                 for i in range(len(leaderboard_sorted)):
@@ -130,16 +134,18 @@ def state_INITIAL(p, message_obj=None, **kwargs):
                     player_name = row['uname'] #utility.escapeMarkdown(row['uname'])
                     board_rows.append([medal, player_name, str(row['earned_points']), str(row['badges'])])
                 import render_leaderboard
-                imgData = render_leaderboard.getResultImage(board_rows,alignment)
+                imgData = render_leaderboard.get_image_data_from_table(board_rows,alignment)
                 bot_telegram.send_photo_from_data(p.chat_id, 'leaderboard.png', imgData)
-            elif text_input == p.ux().BUTTON_INFO:            
-                send_message(p, p.ux().MSG_INFO, kb)
-            elif text_input == p.ux().BUTTON_CHANGE_LANGUAGE:
+            elif text_input == pux.BUTTON_INFO:  
+                msg = pux.MSG_INFO.format(params.default_level, p.chat_id)
+                send_message(p, msg, kb)
+            elif text_input == pux.BUTTON_CHANGE_LANGUAGE:
                 redirect_to_state(p, state_CHANGE_LANGUAGE)
             else:
-                assert False
+                send_message(p, p.ux().MSG_INTERFACE_CHANGED, sleep=2)
+                restart(p)
         else:
-            send_message(p, p.ux().MSG_NOT_VALID_INPUT)
+            send_message(p, pux.MSG_NOT_VALID_INPUT)
 
 def redirect_to_exercise_type(p):
     type_of_exercise = api.choose_exercise(p.user_telegram_id())["exercise_type"]
@@ -158,26 +164,82 @@ def redirect_to_exercise_type(p):
 # ================================
 
 def state_CHANGE_LANGUAGE(p, message_obj=None, **kwargs):    
+    pux = p.ux()
     give_instruction = message_obj is None
-    localized_lang = lambda l: p.ux()['LANG_{}'.format(l)]
-    language_list = [
-        '{} {}'.format(v['flag'], localized_lang(k))
-        for k,v in sorted(LANGUAGES.items(), key=lambda x:localized_lang(x[0]))
-        if k != p.language_exercise
-    ]
     if give_instruction:
-        kb = [[b] for b in language_list]
-        kb.insert(0, [p.ux().BUTTON_CANCEL])
-        kb.append([p.ux().BUTTON_CANCEL])
-        lang = p.language_exercise if p.language_exercise in LANGUAGES else 'en'
-        lang_info = LANGUAGES[lang]
-        flag_lang = '{} {}'.format(lang_info['flag'],localized_lang(lang))
-        msg_learning = p.ux().MSG_YOU_ARE_LEARNING_X.format(flag_lang)
-        msg_select_language = p.ux().MSG_SELECT_NEW_LANGUAGE
-        msg = '\n'.join([msg_learning, msg_select_language])
+        localized_lang = lambda l: pux['LANG_{}'.format(l)]
+        lang_exercise = p.language_exercise
+        lang_interface = p.language_interface
+        flag_lang_exercise = '{} {}'.format(LANGUAGES[lang_exercise]['flag'],localized_lang(lang_exercise))
+        flag_lang_interface = '{} {}'.format(LANGUAGES[lang_interface]['flag'],localized_lang(lang_interface))        
+        msg = '\n'.join([
+            pux.MSG_YOU_ARE_LEARNING_X.format(flag_lang_exercise),
+            pux.MSG_INTERFACE_IS_IN_X.format(flag_lang_interface), 
+            '',
+            pux.MSG_CHANGE_LANGUAGE_INTERFACE_EXERCISE
+        ])
+        kb = [
+            [pux.BUTTON_LANGUAGE_INTERFACE, pux.BUTTON_LANGUAGE_EXERCISE],
+            [pux.BUTTON_CANCEL],
+        ]
         send_message(p, msg, kb)
     else:
         text_input = message_obj.text
+        if text_input is None:
+            send_message(p, pux.MSG_NOT_VALID_INPUT)
+            return        
+        kb = p.get_keyboard()
+        if text_input in utility.flatten(kb):
+            if text_input == pux.BUTTON_LANGUAGE_INTERFACE:
+                p.set_variable('lang_selection_type', 'interface')
+                redirect_to_state(p, state_CHANGE_LANGUAGE_INTERFACE_EXERCISE)
+            elif text_input == pux.BUTTON_LANGUAGE_EXERCISE:
+                p.set_variable('lang_selection_type', 'exercise')
+                redirect_to_state(p, state_CHANGE_LANGUAGE_INTERFACE_EXERCISE)
+            elif text_input == pux.BUTTON_CANCEL:
+                restart(p)
+            else: 
+                send_message(p, p.ux().MSG_INTERFACE_CHANGED, sleep=2)
+                restart(p)
+        else:
+            send_message(p, pux.MSG_NOT_VALID_INPUT)
+
+# ================================
+# CHANGE LANGUAGE INTERFACE/EXERCISE
+# ================================
+
+def state_CHANGE_LANGUAGE_INTERFACE_EXERCISE(p, message_obj=None, **kwargs):    
+    pux = p.ux()
+    give_instruction = message_obj is None
+    localized_lang = lambda l: pux['LANG_{}'.format(l)]
+    language_list = [
+        '{} {}'.format(v['flag'], localized_lang(k))
+        for k,v in sorted(LANGUAGES.items(), key=lambda x:localized_lang(x[0]))
+    ]
+    lang_selection_is_exercise = p.get_variable('lang_selection_type') == 'exercise'
+    
+    if give_instruction:
+        kb = [[b] for b in language_list]
+        kb.insert(0, [pux.BUTTON_BACK])
+        kb.append([pux.BUTTON_BACK])
+        if lang_selection_is_exercise:
+            lang = p.language_exercise if p.language_exercise in LANGUAGES else params.default_language_exercise
+            msg_lang = pux.MSG_YOU_ARE_LEARNING_X
+            msg_select_language = pux.MSG_SELECT_NEW_LANGUAGE_EXERCISE
+        else:
+            lang = p.language_interface if p.language_interface in LANGUAGES else params.default_language_interface
+            msg_lang = pux.MSG_INTERFACE_IS_IN_X
+            msg_select_language = pux.MSG_SELECT_NEW_LANGUAGE_INTERFACE
+        lang_info = LANGUAGES[lang]
+        flag_lang = '{} {}'.format(lang_info['flag'],localized_lang(lang))
+        msg_lang = msg_lang.format(flag_lang)                
+        msg = '\n'.join([msg_lang, msg_select_language])
+        send_message(p, msg, kb)
+    else:
+        text_input = message_obj.text
+        if text_input is None:
+            send_message(p, pux.MSG_NOT_VALID_INPUT)
+            return        
         kb = p.get_keyboard()
         if text_input in utility.flatten(kb):
             if text_input in language_list:
@@ -185,37 +247,42 @@ def state_CHANGE_LANGUAGE(p, message_obj=None, **kwargs):
                     k for k,v in LANGUAGES.items() 
                     if text_input.startswith('{} '.format(v['flag']))
                 )
-                p.set_language_exercise(lang)
-                p.set_language_interface(lang)
-                api.update_user(p.user_telegram_id(), p.name, language_exercise=lang, language_interface=lang)
+                if lang_selection_is_exercise:
+                    p.set_language_exercise(lang)
+                    api.update_user(p.user_telegram_id(), p.name, language_exercise=lang)
+                else:
+                    p.set_language_interface(lang)                
+                    api.update_user(p.user_telegram_id(), p.name, language_interface=lang)
                 restart(p)
-            elif text_input == p.ux().BUTTON_CANCEL:
-                restart(p)
+            elif text_input == pux.BUTTON_BACK:
+                redirect_to_state(p, state_CHANGE_LANGUAGE)
             else: 
-                assert False
+                send_message(p, p.ux().MSG_INTERFACE_CHANGED, sleep=2)
+                restart(p)
         else:
-            send_message(p, p.ux().MSG_NOT_VALID_INPUT)
+            send_message(p, pux.MSG_NOT_VALID_INPUT)
 
 # ================================
 # OPEN EXERCISE
 # ================================
 
 def state_OPEN_EXERCISE(p, message_obj=None, **kwargs):    
+    pux = p.ux()
     give_instruction = message_obj is None
     user_telegram_id = p.user_telegram_id()
     if give_instruction:
-        kb = [[p.ux().BUTTON_DONT_KNOW],[p.ux().BUTTON_EXIT]]
+        kb = [[pux.BUTTON_DONT_KNOW],[pux.BUTTON_EXIT]]
         response = api.get_exercise(user_telegram_id) #elevel='', etype=''        
         # send_message(key.FEDE_CHAT_ID, 'DEBUG:\n{}'.format(json.dumps(response)), markdown=False)
         if response is None:
             report_msg = "None response in get_exercise ({})".format(user_telegram_id)
             send_message(key.FEDE_CHAT_ID, report_msg, markdown=False)
-            send_message(p, p.ux().MSG_AN_ERROR_HAS_OCCURED)
+            send_message(p, pux.MSG_AN_ERROR_HAS_OCCURED)
             return
         if response.get('success', True) == False:
             report_msg = 'Detected success false in get_exercise ({})'.format(user_telegram_id)
             send_message(key.FEDE_CHAT_ID, report_msg, markdown=False)
-            send_message(p, p.ux().MSG_AN_ERROR_HAS_OCCURED)
+            send_message(p, pux.MSG_AN_ERROR_HAS_OCCURED)
             return
         r_eid = response['eid']
         wiki_url = response.get('hint_url', None)
@@ -225,27 +292,30 @@ def state_OPEN_EXERCISE(p, message_obj=None, **kwargs):
         previous_responses = response["previous_responses"]
         msg = exercise
         if previous_responses:
-            msg += '\n' + p.ux().MSG_YOU_PREVIOUSLY_INSERTED.format(
+            msg += '\n' + pux.MSG_YOU_PREVIOUSLY_INSERTED.format(
                 ', '.join('*{}*'.format(pr) for pr in  previous_responses))
         if wiki_url:
-            msg += '\n\n' + p.ux().MSG_INSPIRATION_CHECK_OUT + '\n' + wiki_url
+            msg += '\n\n' + pux.MSG_INSPIRATION_CHECK_OUT + '\n' + wiki_url
         p.set_variable('eid',r_eid)
         p.set_variable('exercise',exercise)   
         p.set_variable('subject',subject)        
         BUTTON_NUM_NOTIFICATIONS = get_notification_button(p, debug=False)
         if BUTTON_NUM_NOTIFICATIONS:
-            kb.insert(1, BUTTON_NUM_NOTIFICATIONS)
+            kb.insert(1, [BUTTON_NUM_NOTIFICATIONS])
         send_message(p, msg, kb)    
     else:
         text_input = message_obj.text
+        if text_input is None:
+            send_message(p, pux.MSG_NOT_VALID_INPUT)
+            return        
         kb = p.get_keyboard()
-        eid = p.get_variable('eid')        
+        eid = p.get_variable('eid')  
         if text_input in utility.flatten(kb):            
-            if text_input == p.ux().BUTTON_EXIT:
+            if text_input == pux.BUTTON_EXIT:
                 restart(p)
-            elif text_input == p.ux().BUTTON_DONT_KNOW:
+            elif text_input == pux.BUTTON_DONT_KNOW:
                 response_json = api.get_random_response(eid, user_telegram_id)
-                msg = p.ux().MSG_POSSIBLE_SOLUTION.format(response_json['response'])
+                msg = pux.MSG_POSSIBLE_SOLUTION.format(response_json['response'])
                 send_message(p, msg, sleepDelay=True, remove_keyboard=True)            
                 send_typing_action(p, sleep_time=1)
                 exercise = p.get_variable('exercise')
@@ -260,21 +330,22 @@ def state_OPEN_EXERCISE(p, message_obj=None, **kwargs):
                         r['exercise'],
                         r['response']) for r in notifications]  #r['exercise']
                     )
-                    msg = p.ux().MSG_NEW_NOTIFICATIONS + '\n' + notifications_str
+                    msg = pux.MSG_NEW_NOTIFICATIONS + '\n' + notifications_str
                     send_message(p, msg, kb)
                     p.set_variable('notifications', [])
                     repeat_state(p)                
                 else:
-                    send_message(p, msg, p.ux().MSG_NO_NEW_POINTS)   
+                    send_message(p, pux.MSG_NO_NEW_NOTIFICATION)   
                 send_typing_action(p, sleep_time=1)
                 exercise = p.get_variable('exercise')
                 send_message(p, exercise, kb)  
             else: 
-                assert False
+                send_message(p, p.ux().MSG_INTERFACE_CHANGED, sleep=2)
+                restart(p)
         else:                
             subject = p.get_variable('subject') 
             if text_input == subject:
-                msg = p.ux().MSG_SAME_WORD.format(subject)
+                msg = pux.MSG_SAME_WORD.format(subject)
                 send_message(p, msg, sleepDelay=True, remove_keyboard=True)            
                 send_typing_action(p, sleep_time=1)
                 exercise = p.get_variable('exercise')
@@ -285,19 +356,19 @@ def state_OPEN_EXERCISE(p, message_obj=None, **kwargs):
             logging.debug("Response from store_response eid={}, user_telegram_id={}, text_input={}: {}".format(eid, user_telegram_id, text_input, response))            
             if 'points' in response:
                 r_points = response['points']                
-                points_str = '*{} {}*'.format(r_points, p.ux().MSG_POINT_PLURAL) \
+                points_str = '*{} {}*'.format(r_points, pux.MSG_POINT_PLURAL) \
                     if r_points and r_points>1 \
-                    else '*1 {}*'.format(p.ux().MSG_POINT_SINGULAR)
-                msg_inserted = p.ux().MSG_YOU_HAVE_INSERTED_X.format(text_input)
+                    else '*1 {}*'.format(pux.MSG_POINT_SINGULAR)
+                msg_inserted = pux.MSG_YOU_HAVE_INSERTED_X.format(text_input)
                 if r_points is None:                    
-                    msg_thanks = p.ux().MSG_THANKS_FOR_YOUR_ANSWER
-                    msg_double_point = p.ux().MSG_DOUBLE_POINT
+                    msg_thanks = pux.MSG_THANKS_FOR_YOUR_ANSWER
+                    msg_double_point = pux.MSG_DOUBLE_POINT
                     msg = msg_inserted + ' ' + msg_thanks + '\n' + msg_double_point
                 elif r_points>0:
-                    msg_good_job = p.ux().MSG_GOOD_JOB_POINT.format(points_str)
+                    msg_good_job = pux.MSG_GOOD_JOB_POINT.format(points_str)
                     msg = msg_inserted + '\n' + msg_good_job
                 elif r_points == 0:
-                    msg_no_points = p.ux().MSG_NO_POINTS
+                    msg_no_points = pux.MSG_NO_POINTS
                     msg = msg_inserted + '\n' + msg_no_points
                 send_message(p, msg)
             else:
@@ -306,7 +377,7 @@ def state_OPEN_EXERCISE(p, message_obj=None, **kwargs):
                 msg = '⚠️ Backend found an error with user {}:\n{}.'.format(
                     p.get_name_last_name_username(), error_msg)
                 send_message(key.FEDE_CHAT_ID, msg)
-                send_message(p, p.ux().MSG_AN_ERROR_HAS_OCCURED)
+                send_message(p, pux.MSG_AN_ERROR_HAS_OCCURED)
             send_typing_action(p, sleep_time=1)    
             redirect_to_exercise_type(p)            
 
@@ -329,6 +400,7 @@ def get_notification_button(p, debug=False):
 # ================================
 
 def state_CLOSE_EXERCISE(p, message_obj=None, **kwargs):    
+    pux = p.ux()
     give_instruction = message_obj is None
     user_telegram_id = p.user_telegram_id()
     if give_instruction:        
@@ -336,12 +408,12 @@ def state_CLOSE_EXERCISE(p, message_obj=None, **kwargs):
         if response is None:
             report_msg = "None response in get_close_exercise ({})".format(user_telegram_id)
             send_message(key.FEDE_CHAT_ID, report_msg, markdown=False)
-            send_message(p, p.ux().MSG_AN_ERROR_HAS_OCCURED)
+            send_message(p, pux.MSG_AN_ERROR_HAS_OCCURED)
             return
         if response.get('success', True) == False:
             report_msg = 'Detected success false in get_close_exercise ({})'.format(user_telegram_id)
             send_message(key.FEDE_CHAT_ID, report_msg, markdown=False)
-            send_message(p, p.ux().MSG_AN_ERROR_HAS_OCCURED)
+            send_message(p, pux.MSG_AN_ERROR_HAS_OCCURED)
             return
         r_eid = response['eid']
         exercise = response['exercise'] # "exercise": "Is it true that sheep is related to herd?",
@@ -356,36 +428,44 @@ def state_CLOSE_EXERCISE(p, message_obj=None, **kwargs):
         msg = exercise
         p.set_variable('eid',r_eid)
         p.set_variable('exercise',exercise)
-        kb = [[p.ux().BUTTON_YES, p.ux().BUTTON_NO], [p.ux().BUTTON_DONT_KNOW], [p.ux().BUTTON_EXIT]]
+        kb = [[pux.BUTTON_YES, pux.BUTTON_NO], [pux.BUTTON_DONT_KNOW], [pux.BUTTON_EXIT]]
         send_message(p, msg, kb)  
     else:
         text_input = message_obj.text
+        if text_input is None:
+            send_message(p, pux.MSG_NOT_VALID_INPUT)
+            return        
         kb = p.get_keyboard()
         eid = p.get_variable('eid')
+        msg_yes = pux.MSG_YES
+        msg_no = pux.MSG_NO
+        msg_y = msg_yes[0]
+        msg_n = msg_no[0]
         if text_input in utility.flatten(kb):
-            if text_input == p.ux().BUTTON_EXIT:
+            if text_input == pux.BUTTON_EXIT:
                 restart(p)
-            elif text_input.upper() in [p.ux().BUTTON_YES, 'YES', 'Y', p.ux().BUTTON_NO, 'NO', 'N', p.ux().BUTTON_DONT_KNOW]:
-                msg_yes = p.ux().MSG_YES
-                msg_no = p.ux().MSG_NO
-                response = 1 if text_input.upper() in [p.ux().BUTTON_YES, msg_yes, msg_yes[0]] \
-                    else -1 if text_input.upper() in [p.ux().BUTTON_NO, msg_no, msg_no[0]] \
-                    else 0
-                evalutaion_json = api.store_close_response(eid, user_telegram_id, response)
-                if response==0:
-                    correct_response = p.ux().BUTTON_YES if evalutaion_json['correct_response'] == 1 else p.ux().BUTTON_NO
-                    msg = p.ux().MSG_DONT_WORRY_CORRECT_RESPONSE.format(correct_response)    
-                else:
-                    correct = evalutaion_json['points']==1            
-                    msg = p.ux().MSG_CORRECT if correct else p.ux().MSG_WRONG
-                send_message(p, msg, sleepDelay=True, remove_keyboard=True)            
-                send_typing_action(p, sleep_time=1)
-                # repeat_state(p)
-                redirect_to_exercise_type(p)
-            else: 
-                assert False
+                return
+            elif text_input in [pux.BUTTON_YES, pux.BUTTON_NO, pux.BUTTON_DONT_KNOW]:
+                pass # dealing with it below together with text
+            else:
+                send_message(p, p.ux().MSG_INTERFACE_CHANGED, sleep=2)
+                restart(p)
+        if text_input.upper() in [pux.BUTTON_YES, msg_yes, msg_y, pux.BUTTON_NO, msg_no, msg_n, pux.BUTTON_DONT_KNOW]:
+            response = 1 if text_input.upper() in [pux.BUTTON_YES, msg_yes, msg_y] \
+                else -1 if text_input.upper() in [pux.BUTTON_NO, msg_no, msg_n] \
+                else 0
+            evalutaion_json = api.store_close_response(eid, user_telegram_id, response)
+            if response==0:
+                correct_response = pux.BUTTON_YES if evalutaion_json['correct_response'] == 1 else pux.BUTTON_NO
+                msg = pux.MSG_DONT_WORRY_CORRECT_RESPONSE.format(correct_response)    
+            else:
+                correct = evalutaion_json['points']==1            
+                msg = pux.MSG_CORRECT if correct else pux.MSG_WRONG
+            send_message(p, msg, sleepDelay=True, remove_keyboard=True)            
+            send_typing_action(p, sleep_time=1)
+            redirect_to_exercise_type(p)
         else:
-            send_message(p, p.ux().MSG_NOT_VALID_INPUT)
+            send_message(p, pux.MSG_NOT_VALID_INPUT)
 
 
 
@@ -470,11 +550,6 @@ def deal_with_manager_commands(p, message_obj):
             return True
         if text_input == '/info':
             return True
-        # if text_input == '/update':
-        #     p.ux().reload_ux()
-        #     key.reload_config()
-        #     send_message(p, p.bot_ux().MSG_RELOADED_CONFIG_TABLE)
-        #     return True
         if text_input == '/stats':
             return True
         return False
