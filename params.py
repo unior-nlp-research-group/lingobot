@@ -12,7 +12,7 @@ SUPPORTED_LANGUAGES = [x.upper() for x in api.get_exercise_languages()]
 
 LANGUAGES = {
     'EN': {
-        'flag': '🏴󠁧󠁢󠁥󠁮󠁧󠁿',
+        'flag': '🇬🇧',
         'en_lang': 'ENGLISH'
     },
     'FI': {

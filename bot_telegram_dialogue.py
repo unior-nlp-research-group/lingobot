@@ -284,12 +284,18 @@ def state_OPEN_EXERCISE(p, message_obj=None, **kwargs):
             send_message(key.FEDE_CHAT_ID, report_msg, markdown=False)
             send_message(p, pux.MSG_AN_ERROR_HAS_OCCURED)
             return
-        r_eid = response['eid']
-        wiki_url = response.get('hint_url', None)
-        exercise = response['exercise'] # "exercise": "Name a thing that is located at a desk",                
+        r_eid = response['eid']        
+        relation = response['relation']
+        # exercise = response['exercise'] # "exercise": "Name a thing that is located at a desk",                
         subject = response['subject']
-        # exercise = exercise[:exercise.rfind(subject)] + '*{}*'.format(subject)
+        wiki_url = response.get('hint_url', None)
         previous_responses = response["previous_responses"]
+        relation_msg_mapping = {
+            'RelatedTo': 'MSG_OPEN_EXERCISE_RELATEDTO_X',
+            'AtLocation': 'MSG_OPEN_EXERCISE_LOCATEDAT_X',
+            'PartOf': 'MSG_OPEN_EXERCISE_PARTOF_X'
+        }
+        exercise = pux[relation_msg_mapping[relation]].format(subject) 
         msg = exercise
         if previous_responses:
             msg += '\n' + pux.MSG_YOU_PREVIOUSLY_INSERTED.format(
@@ -416,15 +422,18 @@ def state_CLOSE_EXERCISE(p, message_obj=None, **kwargs):
             send_message(p, pux.MSG_AN_ERROR_HAS_OCCURED)
             return
         r_eid = response['eid']
-        exercise = response['exercise'] # "exercise": "Is it true that sheep is related to herd?",
-        # exercise = re.sub(
-        #     r"Is it true that (.+) is related to (.+)\?", 
-        #     r"Is it true that *\1* is related to *\2*?", 
-        #     exercise
-        # )
-        # subject = response['subject']
-        # if subject in exercise:
-        #     exercise = exercise[:exercise.rfind(subject)] + '*{}*'.format(subject)
+        relation = response['relation']
+        subject = response['subject']
+        object = response['object']
+        # exercise = response['exercise'] # "exercise": "Is it true that sheep is related to herd?",
+
+        relation_msg_mapping = {
+            'RelatedTo': 'MSG_CLOSE_EXERCISE_RELATEDTO_X',
+            'AtLocation': 'MSG_CLOSE_EXERCISE_LOCATEDAT_X',
+            'PartOf': 'MSG_CLOSE_EXERCISE_PARTOF_X'
+        }
+        
+        exercise = pux[relation_msg_mapping[relation]].format(subject, object)
         msg = exercise
         p.set_variable('eid',r_eid)
         p.set_variable('exercise',exercise)
