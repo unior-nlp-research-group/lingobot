@@ -76,7 +76,7 @@ def state_INITIAL(p, message_obj=None, **kwargs):
         if new_notifications_number>0:
             #send_message(p, "New notification!!")
             pux.BUTTON_NUM_NOTIFICATIONS = '{} ({})'.format('🌟', new_notifications_number)
-            kb[1].insert(1, [pux.BUTTON_NUM_NOTIFICATIONS])
+            kb[1].insert(1, pux.BUTTON_NUM_NOTIFICATIONS)
         lang = p.language_exercise if p.language_exercise in LANGUAGES else params.default_language_exercise
         lang_info = LANGUAGES[lang]
         localized_lang = lambda l: pux['LANG_{}'.format(l)]
