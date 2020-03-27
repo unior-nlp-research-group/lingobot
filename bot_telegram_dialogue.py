@@ -575,8 +575,10 @@ def deal_with_universal_command(p, message_obj):
         send_message(p, msg, markdown=False)
         return True
     if text_input == '/update':
+        send_message(p, '💤 Please wait...', markdown=False)
         bot_ux.reload_ux()
-        send_message(p, '💨 Reloaded translation table!', markdown=False)
+        send_message(p, '💨 Reloaded localization table!', markdown=False)
+        send_message(p, bot_ux.get_error_for_lang(p), markdown=False)
         return True
     if text_input == '/refresh':
         repeat_state(p)

@@ -16,11 +16,16 @@ app = Flask(__name__)
 def root():
     logging.debug("in root function")
     """Return a friendly HTTP greeting."""
-    return "hiSTORIC!!", 200
+    return "LingoGame!!", 200
 
-@app.route('/postest', methods=['POST'])
-def post_test():
-    return "post test!", 200
+@app.route('/localization', methods=['GET'])
+def localization():
+    from params import LANGUAGES
+    import bot_ux
+    lang = request.args.get('lang', '').upper()
+    if lang and lang in LANGUAGES:
+        return bot_ux.get_html_error_for_lang(lang)
+    return bot_ux.get_html_errors()
 
 @app.errorhandler(404)
 def page_not_found(e):

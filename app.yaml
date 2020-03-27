@@ -1,5 +1,6 @@
 # app name: lingogamebot
 # url: https://lingogamebot.appspot.com
+# version: production
 
 entrypoint: gunicorn -b :$PORT main:app
 runtime: python37
