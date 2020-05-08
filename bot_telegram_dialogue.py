@@ -293,7 +293,8 @@ def state_OPEN_EXERCISE(p, message_obj=None, **kwargs):
         relation_msg_mapping = {
             'RelatedTo': 'MSG_OPEN_EXERCISE_RELATEDTO_X',
             'AtLocation': 'MSG_OPEN_EXERCISE_LOCATEDAT_X',
-            'PartOf': 'MSG_OPEN_EXERCISE_PARTOF_X'
+            'PartOf': 'MSG_OPEN_EXERCISE_PARTOF_X',
+            'Synonym': 'MSG_OPEN_EXERCISE_SYNONYMOF_X',
         }
         exercise = pux[relation_msg_mapping[relation]].format(subject) 
         msg = exercise
@@ -430,7 +431,8 @@ def state_CLOSE_EXERCISE(p, message_obj=None, **kwargs):
         relation_msg_mapping = {
             'RelatedTo': 'MSG_CLOSE_EXERCISE_RELATEDTO_X',
             'AtLocation': 'MSG_CLOSE_EXERCISE_LOCATEDAT_X',
-            'PartOf': 'MSG_CLOSE_EXERCISE_PARTOF_X'
+            'PartOf': 'MSG_CLOSE_EXERCISE_PARTOF_X',
+            'Synonym': 'MSG_CLOSE_EXERCISE_SYNONYMOF_X'
         }
         
         exercise = pux[relation_msg_mapping[relation]].format(subject, object)
