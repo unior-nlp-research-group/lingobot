@@ -275,14 +275,12 @@ def state_OPEN_EXERCISE(p, message_obj=None, **kwargs):
         response = api.get_exercise(user_telegram_id) #elevel='', etype=''        
         # send_message(key.FEDE_CHAT_ID, 'DEBUG:\n{}'.format(json.dumps(response)), markdown=False)
         if response is None:
-            report_msg = "None response in get_exercise ({})".format(user_telegram_id)
-            send_message(key.FEDE_CHAT_ID, report_msg, markdown=False)
-            send_message(p, pux.MSG_AN_ERROR_HAS_OCCURED)
+            error_msg = "⚠️ None response in get_exercise ({})".format(user_telegram_id)
+            report_master(error_msg)
             return
         if response.get('success', True) == False:
-            report_msg = 'Detected success false in get_exercise ({})'.format(user_telegram_id)
-            send_message(key.FEDE_CHAT_ID, report_msg, markdown=False)
-            send_message(p, pux.MSG_AN_ERROR_HAS_OCCURED)
+            error_msg = '⚠️ Detected success false in get_exercise ({})'.format(user_telegram_id)
+            report_master(error_msg)
             return
         r_eid = response['eid']        
         relation = response['relation']
@@ -413,14 +411,12 @@ def state_CLOSE_EXERCISE(p, message_obj=None, **kwargs):
     if give_instruction:        
         response = api.get_close_exercise(user_telegram_id) #elevel='', etype='RelatedTo'
         if response is None:
-            report_msg = "None response in get_close_exercise ({})".format(user_telegram_id)
-            send_message(key.FEDE_CHAT_ID, report_msg, markdown=False)
-            send_message(p, pux.MSG_AN_ERROR_HAS_OCCURED)
+            error_msg = "⚠️ None response in get_close_exercise ({})".format(user_telegram_id)
+            report_master(error_msg)
             return
         if response.get('success', True) == False:
-            report_msg = 'Detected success false in get_close_exercise ({})'.format(user_telegram_id)
-            send_message(key.FEDE_CHAT_ID, report_msg, markdown=False)
-            send_message(p, pux.MSG_AN_ERROR_HAS_OCCURED)
+            error_msg = '⚠️ Detected success false in get_close_exercise ({})'.format(user_telegram_id)
+            report_master(error_msg)
             return
         r_eid = response['eid']
         relation = response['relation']
