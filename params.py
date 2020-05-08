@@ -57,4 +57,5 @@ LANGUAGES = {
     }, 
 }
 
-LANGUAGES = {k:v for k,v in LANGUAGES.items() if k in SUPPORTED_LANGUAGES}
+# uncomment this to use only languages supported by the backend
+# LANGUAGES = {k:v for k,v in LANGUAGES.items() if k in SUPPORTED_LANGUAGES}
