@@ -1,6 +1,6 @@
 import logging
 import traceback
-from bot_telegram import report_master
+from bot_telegram import tell_admin
 import telegram
 import time
 from ndb_utils import client
@@ -15,7 +15,7 @@ def exception_reporter(func, *args, **kwargs):
             logging.error(report_string) 
             try:
                 with client.context():
-                    report_master(report_string)
+                    tell_admin(report_string)
             except Exception:
                 report_string = '❗️ Exception {}'.format(traceback.format_exc())
                 logging.error(report_string)          
@@ -44,9 +44,9 @@ def retry_on_network_error(func):
                 sleep_secs = pow(2,retry_num)
                 report_string = '⚠️️ Caught network error, on {} attemp. Retrying after {} secs...'.format(retry_num,sleep_secs)
                 logging.warning(report_string)                 
-                report_master(report_string)
+                tell_admin(report_string)
                 time.sleep(sleep_secs)
         report_string = '❗️ Exception: persistent network error'
         logging.error(report_string)            
-        report_master(report_string)            
+        tell_admin(report_string)            
     return retry_on_network_error_wrapper

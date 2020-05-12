@@ -14,26 +14,26 @@ def reset_db():
     logging.debug('reset_db method. payload={} response={}'.format(payload, r.text))
     return r.json()
 
-def add_user(userid, uname, language_interface='eng', langauge_exercise='eng'):
+def add_user(userid, uname, language_interface='en', langauge_exercise='en'):
     payload = {
         'method': 'add_user',
         'userid': userid,
         'uname': uname,
-        'language_interface': language_interface,
-        'langauge_exercise': langauge_exercise
+        'language_interface': language_interface.lower(),
+        'langauge_exercise': langauge_exercise.lower()
     }    
     r = requests.get(API_URL, params=payload)
     logging.debug('add_user method. payload={} response={}'.format(payload, r.text))
     return r.json()
     #"success": boolean
 
-def update_user(userid, uname, language_exercise='en', language_interface='en'):
+def update_user(userid, uname, language_exercise, language_interface):
     payload = {
         'method': 'update_user',
         'userid': userid,
         'uname': uname,
-        'language_exercise': language_exercise,
-        'language_interface': language_interface
+        'language_exercise': language_exercise.lower(),
+        'language_interface': language_interface.lower()
     }    
     r = requests.get(API_URL, params=payload)
     logging.debug('add_user method. payload={} response={}'.format(payload, r.text))
@@ -81,7 +81,7 @@ def get_exercise(userid, elevel=None, etype=None):
     try:
         return r.json()
     except json.decoder.JSONDecodeError:
-        bot_telegram.report_master("JSON error in get_exercise:\n{}".format(r.content))
+        bot_telegram.tell_admin("JSON error in get_exercise:\n{}".format(r.content))
     # "eid": int,
     # "userid": string,
     # "exercise": string,
@@ -93,7 +93,7 @@ def get_exercise(userid, elevel=None, etype=None):
 
 #level = 'A1','A2',...
 #etype = 'RelatedTo', 'AtLocation', 'PartOf'
-def get_close_exercise(userid, elevel=None, etype='RelatedTo'):
+def get_close_exercise(userid, elevel=None, etype=None):
     payload = {
         'method': 'get_close_exercise',
         'userid': userid,
@@ -244,7 +244,9 @@ def get_leaderboard():
     # ]
 
 if __name__ == "__main__":
-    response = get_exercise('telegram_111')
+    # response = add_user('telegram_222', 'test')
+    # print(json.dumps(response, indent=3))
+    response = get_exercise('telegram_130870321')
     print(json.dumps(response, indent=3))
     '''
     {

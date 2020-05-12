@@ -22,6 +22,7 @@ If kb==None keep last keyboard
 # @retry_on_network_error
 def send_message(p, text, kb=None, markdown=True, remove_keyboard=False, \
     inline_keyboard=False, sleep=False, **kwargs):
+
     if kb or remove_keyboard:
         if inline_keyboard:
             reply_markup = {  
@@ -118,19 +119,15 @@ def get_photo_url_from_telegram(file_id):
     url = key.TELEGRAM_BASE_URL_FILE + file_path
     return url
 
-bot_telegram_MASTER = None
-
-def report_master(message):
-    global bot_telegram_MASTER
-    if bot_telegram_MASTER is None:
-        bot_telegram_MASTER = ndb_person.get_person_by_id(key.ADMIN_IDS[0])
-    max_length = 2000
-    if len(message)>max_length:
-        chunks = (message[0+i:max_length+i] for i in range(0, len(message), max_length))
-        for m in chunks:
-            send_message(bot_telegram_MASTER, m, markdown=False)    
-    else:
-        send_message(bot_telegram_MASTER, message, markdown=False)
+def tell_admin(message):
+    max_length = 2000    
+    for uid in key.ADMIN_IDS:
+        if len(message)>max_length:
+            chunks = (message[0+i:max_length+i] for i in range(0, len(message), max_length))
+            for m in chunks:
+                send_message(uid, m, markdown=False)    
+        else:
+            send_message(uid, message, markdown=False)
 
 import utility
 
@@ -209,20 +206,3 @@ def reset_all_users(qry = None, message=None):
     msg_admin = 'Resetted {} users.'.format(total)
     tell_admin(msg_admin)
 
-
-# ================================
-# UTILIITY TELL FUNCTIONS
-# ================================
-
-def tell_admin(msg):
-    logging.debug(msg)
-    for uid in key.ADMIN_IDS:
-        p = ndb_person.get_person_by_id(uid)
-        send_message(p, msg, markdown=False)
-
-def send_message_to_person(uid, msg, markdown=False):
-    p = Person.get_by_id(uid)
-    send_message(p, msg, markdown=markdown)
-    if p and p.enabled:
-        return True
-    return False

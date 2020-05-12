@@ -1,8 +1,8 @@
 import logging
 import bot_telegram
 from bot_telegram import BOT, send_message, send_location, send_typing_action, \
-    report_master, send_text_document, send_media_url, \
-    broadcast, tell_admin, reset_all_users
+    tell_admin, send_text_document, send_media_url, \
+    broadcast, reset_all_users
 import utility
 import telegram
 import ndb_person
@@ -249,10 +249,15 @@ def state_CHANGE_LANGUAGE_INTERFACE_EXERCISE(p, message_obj=None, **kwargs):
                 )
                 if lang_selection_is_exercise:
                     p.set_language_exercise(lang)
-                    api.update_user(p.user_telegram_id(), p.name, language_exercise=lang)
                 else:
                     p.set_language_interface(lang)                
-                    api.update_user(p.user_telegram_id(), p.name, language_interface=lang)
+                
+                api.update_user(
+                    p.user_telegram_id(), 
+                    p.name, 
+                    language_exercise = p.language_exercise, 
+                    language_interface = p.language_interface
+                )
                 restart(p)
             elif text_input == pux.BUTTON_BACK:
                 redirect_to_state(p, state_CHANGE_LANGUAGE)
@@ -276,11 +281,11 @@ def state_OPEN_EXERCISE(p, message_obj=None, **kwargs):
         # send_message(key.FEDE_CHAT_ID, 'DEBUG:\n{}'.format(json.dumps(response)), markdown=False)
         if response is None:
             error_msg = "⚠️ None response in get_exercise ({})".format(user_telegram_id)
-            report_master(error_msg)
+            tell_admin(error_msg)
             return
         if response.get('success', True) == False:
             error_msg = '⚠️ Detected success false in get_exercise ({})'.format(user_telegram_id)
-            report_master(error_msg)
+            tell_admin(error_msg)
             return
         r_eid = response['eid']        
         relation = response['relation']
@@ -412,11 +417,11 @@ def state_CLOSE_EXERCISE(p, message_obj=None, **kwargs):
         response = api.get_close_exercise(user_telegram_id) #elevel='', etype='RelatedTo'
         if response is None:
             error_msg = "⚠️ None response in get_close_exercise ({})".format(user_telegram_id)
-            report_master(error_msg)
+            tell_admin(error_msg)
             return
         if response.get('success', True) == False:
             error_msg = '⚠️ Detected success false in get_close_exercise ({})'.format(user_telegram_id)
-            report_master(error_msg)
+            tell_admin(error_msg)
             return
         r_eid = response['eid']
         relation = response['relation']
@@ -618,7 +623,7 @@ def deal_with_request(request_json):
 
     if p == None:
         p = ndb_person.add_person(chat_id, name, last_name, username)
-        report_master('New user: {}'.format(p.get_name_last_name_username()))
+        tell_admin('New user: {}'.format(p.get_name_last_name_username()))
     else:
         p.update_user(name, last_name, username)
 
