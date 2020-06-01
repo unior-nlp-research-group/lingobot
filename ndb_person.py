@@ -49,6 +49,11 @@ class Person(ndb.Model):
         if put:
             self.put()
 
+    def switch_notifications(self, put=True):
+        self.enabled = not self.enabled
+        if put:
+            self.put()
+
     def update_user(self, name, last_name, username, put=False):
         import params
         changed = False

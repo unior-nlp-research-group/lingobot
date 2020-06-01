@@ -489,7 +489,24 @@ def state_CLOSE_EXERCISE(p, message_obj=None, **kwargs):
 
 def deal_with_admin_commands(p, message_obj):
     text_input = message_obj.text
-    if p.is_admin():
+    if p.is_manager():
+        if text_input.startswith('/textUser '):
+            text_input_split = text_input.split(' ', 2)
+            if len(text_input_split)!=3:
+                msg = "Error: /textUser needs 2 arguments (/textUser <id_number> <text>)"
+                send_message(p, msg, markdown=False)
+                return True
+            u_id, text = text_input.split(' ', 2)[1:]
+            user = Person.get_by_id(u_id)
+            if user == None:
+                msg = 'Error: No user found with id: {}'.format(u_id)
+            elif send_message(user, text):
+                msg = 'Message sent successfully to {}'.format(user.get_name_last_name())
+            else:
+                msg = 'Error: Problems sending message to {}'.format(user.get_name_last_name())
+            send_message(p, msg, markdown=False)
+            return True
+    elif p.is_admin():
         if text_input == '/debug':
             #send_message(p, game.debugTmpVariables(p), markdown=False)
             send_text_document(p, 'tmp_vars.json', p.variables)
@@ -526,25 +543,15 @@ def deal_with_admin_commands(p, message_obj):
             logging.debug("Starting to broadcast " + msg)
             broadcast(p, msg)
             return True
-        if text_input.startswith('/textUser '):
-            p_id, text = text_input.split(' ', 2)[1]
-            p = Person.get_by_id(p_id)
-            if send_message(p, text, kb=p.get_keyboard()):
-                msg_admin = 'Message sent successfully to {}'.format(p.get_first_last_username())
-                tell_admin(msg_admin)
-            else:
-                msg_admin = 'Problems sending message to {}'.format(p.get_first_last_username())
-                tell_admin(msg_admin)
-            return True
         if text_input.startswith('/restartUser '):
-            p_id = ' '.join(text_input.split(' ')[1:])
-            p = Person.get_by_id(p_id)
-            if p:
-                restart(p)
-                msg_admin = 'User restarted: {}'.format(p.get_first_last_username())
+            u_id = ' '.join(text_input.split(' ')[1:])
+            user = Person.get_by_id(u_id)
+            if user:
+                restart(user)
+                msg_admin = 'User restarted: {}'.format(user.get_name_last_name())
                 tell_admin(msg_admin)                
             else:
-                msg_admin = 'No user found: {}'.format(p_id)
+                msg_admin = 'No user found: {}'.format(u_id)
                 tell_admin(msg_admin)
             return True
         if text_input == '/reset_all_users':            
